@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Controle de Carregamento</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* Mantendo exatamente o mesmo CSS original */
+        :root {
+            --vermelho: #8B0000;
+            --fundo: #F5F5F5;
+            /* Definindo a cor vinho para as sombras */
+            --sombra-vinho: rgba(139, 0, 0, 0.3); /* Vermelho escuro com 30% de opacidade */
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: var(--fundo);
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: white;
+            background: var(--vermelho);
+            padding: 20px;
+            margin: -15px -15px 20px -15px;
+            text-align: center;
+            font-size: 1.4em;
+            box-shadow: 0 2px 8px var(--sombra-vinho); /* Sombra mais destacada e vinho */
+        }
+
+        .secao {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px var(--sombra-vinho); /* Sombra mais destacada e vinho */
+        }
+
+        .titulo-secao {
+            color: var(--vermelho);
+            margin: 0 0 15px 0;
+            font-weight: bold;
+            font-size: 1.1em;
+            border-bottom: 2px solid var(--vermelho);
+            padding-bottom: 5px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        /* AJUSTE AQUI: Alinhar botões horizontalmente */
+        .grupo-botoes {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 colunas no mobile */
+            gap: 10px; /* Espaçamento entre os botões */
+            margin-top: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .grupo-botoes {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Botões em uma linha no desktop, ajustando o tamanho */
+            }
+        }
+
+        button {
+            background: var(--vermelho);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        .checklist {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr); /* Mudado para 1 coluna */
+            gap: 10px;
+        }
+
+        .checklist label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 5px; /* Adicionado margem entre os itens do checklist */
+        }
+
+        .checklist label input[type="radio"] {
+            margin-right: 5px;
+        }
+
+        @media (min-width: 768px) {
+            body {
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+        }
+
+        .modal-relatorio, .modal-dados-salvos, .modal-detalhes-historico {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-relatorio .conteudo-modal, .modal-dados-salvos .conteudo-modal, .modal-detalhes-historico .conteudo-modal {
+            background-color: #fff;
+            margin: 5% auto; /* Reduzida a margem superior para mais espaço */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px var(--sombra-vinho); /* Sombra mais destacada e vinho */
+            width: 95%; /* Maior largura para melhor visualização */
+            max-width: 900px; /* Aumentado max-width */
+            position: relative;
+            overflow-y: auto;
+            max-height: 90vh; /* Aumentado max-height */
+            white-space: pre-wrap; /* Mantém a formatação do <pre> */
+            word-break: break-word;
+        }
+
+        .modal-relatorio .fechar-modal, .modal-dados-salvos .fechar-modal, .modal-detalhes-historico .fechar-modal {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .modal-relatorio .fechar-modal:hover,
+        .modal-relatorio .fechar-modal:focus,
+        .modal-dados-salvos .fechar-modal:hover,
+        .modal-dados-salvos .fechar-modal:focus,
+        .modal-detalhes-historico .fechar-modal:hover,
+        .modal-detalhes-historico .fechar-modal:focus {
+            color: #000;
+            text-decoration: none;
+        }
+
+        .produto-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center; /* Alinha verticalmente os itens */
+            flex-wrap: wrap; /* Permite que os itens quebrem linha em telas pequenas */
+        }
+
+        .produto-item input,
+        .produto-item textarea { /* Adicionado textarea para observação do produto */
+            margin: 0; /* Remove margem padrão que atrapalha o flex */
+            min-width: 80px; /* Garante que os inputs não fiquem muito pequenos */
+        }
+        
+        /* Estilos para o novo campo de lacre */
+        .lacre-fields {
+            margin-top: 10px;
+        }
+        .lacre-fields input[type="text"] {
+            margin-top: 5px;
+        }
+
+        /* Estilos para a tabela de histórico */
+        .historico-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .historico-table th, .historico-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .historico-table th {
+            background-color: var(--vermelho);
+            color: white;
+            font-weight: bold;
+        }
+
+        .historico-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .historico-table button {
+            padding: 5px 10px;
+            font-size: 0.8em;
+            margin-right: 5px;
+        }
+
+        .historico-table .btn-editar {
+            background-color: #28a745; /* Verde */
+        }
+        .historico-table .btn-excluir {
+            background-color: #dc3545; /* Vermelho */
+        }
+    </style>
+</head>
+<body>
+
+<h1>CONTROLE DE CARREGAMENTO</h1>
+
+<div id="modalRelatorio" class="modal-relatorio">
+    <div class="conteudo-modal">
+        <span class="fechar-modal" onclick="fecharRelatorio()">&times;</span>
+        <pre id="relatorioConteudo"></pre>
+    </div>
+</div>
+
+<div id="modalDadosSalvos" class="modal-dados-salvos">
+    <div class="conteudo-modal">
+        <span class="fechar-modal" onclick="fecharDadosSalvos()">&times;</span>
+        <h2 style="color: var(--vermelho); margin-top: 0;">Histórico de Carregamentos Salvos</h2>
+        <div id="dadosSalvosConteudo" style="max-height: 70vh; overflow-y: auto;">
+            </div>
+    </div>
+</div>
+
+<div id="modalDetalhesHistorico" class="modal-detalhes-historico">
+    <div class="conteudo-modal">
+        <span class="fechar-modal" onclick="fecharDetalhesHistorico()">&times;</span>
+        <h2 style="color: var(--vermelho); margin-top: 0;">Detalhes do Carregamento</h2>
+        <pre id="detalhesHistoricoConteudo"></pre>
+    </div>
+</div>
+
+
+<div class="secao">
+    <div class="titulo-secao">👤 DADOS DO MOTORISTA</div>
+    <input type="text" id="motorista" placeholder="Nome do motorista">
+    <input type="text" id="cpf" placeholder="CPF do motorista">
+    <input type="text" id="placa" placeholder="Placa do veículo">
+    <input type="text" id="transportadora" placeholder="Nome da Transportadora">
+    <input type="date" id="data">
+    <input type="text" id="cliente" placeholder="Nome do Cliente"> <!-- CAMPO ADICIONADO AQUI -->
+</div>
+
+    <div class="secao">
+        <div class="titulo-secao">✅ CHECKLIST</div>
+        <div class="checklist">
+            <label>
+                Caminhão limpo, sem odores e em boas condições de higiene?
+                <input type="radio" name="higienizacao" value="sim"> Sim
+                <input type="radio" name="higienizacao" value="não"> Não
+            </label>
+            <label>
+                Tem vazamento, umidade e infiltrações?
+                <input type="radio" name="vazamento" value="sim"> Sim
+                <input type="radio" name="vazamento" value="não"> Não
+            </label>
+            <label>
+                Tem cortina como barreira física?
+                <input type="radio" name="cortina" value="sim"> Sim
+                <input type="radio" name="cortina" value="não"> Não
+            </label>
+            <label>
+                Termômetro funcionando?
+                <input type="radio" name="termometro" value="sim"> Sim
+                <input type="radio" name="termometro" value="não"> Não
+            </label>
+            <label>
+                Quantidade de caixas carregada é adequada?
+                <input type="radio" name="quantidade_caixas_checklist" value="sim"> Sim
+                <input type="radio" name="quantidade_caixas_checklist" value="não"> Não
+            </label>
+            <label>
+                Paletes íntegros e sem presença de pragas?
+                <input type="radio" name="paletes_integros" value="sim"> Sim
+                <input type="radio" name="paletes_integros" value="não"> Não
+            </label>
+        </div>
+        <label for="observacoes_checklist">Observações do Checklist:</label>
+        <textarea id="observacoes_checklist" name="observacoes_checklist" rows="3"></textarea>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">🔒 LACRE</div>
+        <div class="checklist">
+            <label>
+                Caminhão esta saindo lacrado?
+                <input type="radio" name="lacre_status" value="sim" onchange="toggleLacreFields()"> Sim
+                <input type="radio" name="lacre_status" value="nao" onchange="toggleLacreFields()"> Não
+            </label>
+        </div>
+        <div id="lacre_fields" class="lacre-fields" style="display:none;">
+            <input type="text" id="codigo_lacre" placeholder="Código do Lacre">
+            <textarea id="motivo_sem_lacre" placeholder="Motivo pelo qual não esta lacrado" rows="3"></textarea>
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">🌡️⏰ INÍCIO DO CARREGAMENTO</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+            <input type="time" id="hora_inicio">
+            <input type="number" id="temp_inicio_caminhao" placeholder="Temp. Caminhão (°C)" step="0.1">
+            <input type="number" id="temp_inicio_produto" placeholder="Temp. Produto (°C)" step="0.1">
+        </div>
+    </div>
+
+    <div class="secao">
+    <div class="titulo-secao">🌡️⏰ MEIO DO CARREGAMENTO</div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+        <input type="time" id="hora_meio">
+        <input type="number" id="temp_meio_caminhao" placeholder="Temp. Caminhão (°C)" step="0.1">
+        <input type="number" id="temp_meio_produto" placeholder="Temp. Produto (°C)" step="0.1"> 
+    </div>
+</div>
+
+<div class="secao">
+        <div class="titulo-secao">🌡️⏰ FIM DO CARREGAMENTO</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+            <input type="time" id="hora_fim">
+            <input type="number" id="temp_fim_caminhao" placeholder="Temp. Caminhão (°C)" step="0.1">
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">📦 PRODUTOS</div>
+        <div id="produtos-container"></div>
+        <button type="button" onclick="adicionarProduto()">➕ Adicionar Produto</button>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">📦 TIPO DE CARGA</div>
+        <select id="tipo_carga" onchange="mostrarCamposDinamicos()">
+            <option value="">Selecione o tipo...</option>
+            <option value="paletizado">Paletizado</option>
+            <option value="batido">Batido</option>
+        </select>
+
+        <div id="caixas_field_container" style="display:none">
+            <input type="number" id="caixas" placeholder="Quantidade de caixas" min="0">
+        </div>
+
+        <div id="paletes_field_container" style="display:none">
+            <input type="number" id="paletes" placeholder="Quantidade de paletes" min="0">
+        </div>
+    </div>
+
+    
+
+    <div class="secao">
+        <div class="titulo-secao">📋 LIBERAÇÃO</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+            <input type="time" id="hora_liberacao" placeholder="Hora da Liberação">
+            <input type="number" id="temp_liberacao_caminhao" placeholder="Temp. Lib. Caminhão (°C)" step="0.1">
+        </div>
+        <div class="checklist">
+            <label>
+                Aprovado?
+                <input type="radio" name="aprovado" value="sim" onchange="toggleObservacoesLiberacao()"> Sim
+                <input type="radio" name="aprovado" value="nao" onchange="toggleObservacoesLiberacao()"> Não
+            </label>
+        </div>
+        <div id="observacoes_liberacao_container" style="display:none;"> <label for="observacoes_liberacao">Observações da Liberação:</label>
+            <textarea id="observacoes_liberacao" name="observacoes_liberacao" rows="3"></textarea>
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">👔 CONFERENTE</div>
+        <input type="text" id="conferente" placeholder="Nome do conferente">
+    </div>
+
+    <div class="grupo-botoes">
+        <button type="button" onclick="salvarDados()">💾 Salvar</button>
+        <button type="button" onclick="gerarRelatorio()">📊 Relatório</button>
+        <button type="button" onclick="exportarParaExcel()">📤 Exportar Excel</button>
+        <button type="button" onclick="limparFormulario()">🧹 Limpar Formulário</button>
+        <button type="button" onclick="verDadosSalvos()">📜 Ver Histórico</button> 
+        <button type="button" onclick="window.location.href='inicio.html'">🏠 Início</button>
+    </div>
+</form>
+
+<script>
+    let dadosCarregamento = JSON.parse(localStorage.getItem('dadosCarregamento')) || [];
+
+    // Função para formatar o CPF
+    function formatarCPF(input) {
+        let value = input.value.replace(/\D/g, '');
+        value = value.substring(0, 11);
+        value = value.replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        input.value = value;
+    }
+
+    document.getElementById('cpf').addEventListener('input', function(e) {
+        formatarCPF(e.target);
+    });
+
+    function mostrarCamposDinamicos() {
+        const tipo = document.getElementById('tipo_carga').value;
+        const paletesContainer = document.getElementById('paletes_field_container');
+        const caixasContainer = document.getElementById('caixas_field_container');
+        const paletesInput = document.getElementById('paletes');
+        const caixasInput = document.getElementById('caixas');
+
+        // Resetar visibilidade e limpar valores
+        paletesContainer.style.display = 'none';
+        caixasContainer.style.display = 'none';
+        paletesInput.value = '';
+        caixasInput.value = '';
+
+        if (tipo === 'paletizado') {
+            paletesContainer.style.display = 'block';
+            caixasContainer.style.display = 'block';
+        } else if (tipo === 'batido') {
+            caixasContainer.style.display = 'block';
+        }
+    }
+
+    function toggleLacreFields() {
+        const lacreStatus = document.querySelector('input[name="lacre_status"]:checked')?.value;
+        const lacreFieldsDiv = document.getElementById('lacre_fields');
+        const codigoLacreInput = document.getElementById('codigo_lacre');
+        const motivoSemLacreTextarea = document.getElementById('motivo_sem_lacre');
+
+        // Resetar visibilidade e limpar valores
+        lacreFieldsDiv.style.display = 'none';
+        codigoLacreInput.value = '';
+        motivoSemLacreTextarea.value = '';
+
+        if (lacreStatus === 'sim') {
+            lacreFieldsDiv.style.display = 'block';
+            codigoLacreInput.style.display = 'block';
+            motivoSemLacreTextarea.style.display = 'none';
+        } else if (lacreStatus === 'nao') {
+            lacreFieldsDiv.style.display = 'block';
+            codigoLacreInput.style.display = 'none';
+            motivoSemLacreTextarea.style.display = 'block';
+        }
+    }
+
+    // NOVA FUNÇÃO PARA OBSERVAÇÕES DA LIBERAÇÃO
+    function toggleObservacoesLiberacao() {
+        const aprovadoStatus = document.querySelector('input[name="aprovado"]:checked')?.value;
+        const obsLiberacaoContainer = document.getElementById('observacoes_liberacao_container');
+        const obsLiberacaoTextarea = document.getElementById('observacoes_liberacao');
+
+        if (aprovadoStatus === 'sim') {
+            obsLiberacaoContainer.style.display = 'none';
+            obsLiberacaoTextarea.value = ''; // Limpa o conteúdo se "Sim" for selecionado
+        } else if (aprovadoStatus === 'nao') {
+            obsLiberacaoContainer.style.display = 'block';
+        } else {
+            obsLiberacaoContainer.style.display = 'none'; // Esconde se nada for selecionado
+            obsLiberacaoTextarea.value = '';
+        }
+    }
+
+    function validarCPF(cpf) {
+        cpf = cpf.replace(/\D/g, '');
+        // Retorna true se vazio para não impedir o salvamento, senão valida
+        if (cpf.length === 0) return true; 
+
+        if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+
+        let soma = 0;
+        for (let i = 0; i < 9; i++) soma += parseInt(cpf.charAt(i)) * (10 - i);
+        let resto = (soma * 10) % 11;
+        if (resto === 10 || resto === 11) resto = 0;
+        if (resto !== parseInt(cpf.charAt(9))) return false;
+
+        soma = 0;
+        for (let i = 0; i < 10; i++) soma += parseInt(cpf.charAt(i)) * (11 - i);
+        resto = (soma * 10) % 11;
+        return resto === parseInt(cpf.charAt(10));
+    }
+
+    function adicionarProduto() {
+        const container = document.getElementById('produtos-container');
+        const div = document.createElement('div');
+        div.classList.add('produto-item');
+
+        // Campos de produto sem 'required'
+        div.innerHTML = `
+            <input type="text" name="codigo[]" placeholder="Código" style="flex:2;">
+            <input type="number" name="quantidade[]" placeholder="Qtd" min="0" style="flex:1;">
+            <textarea name="observacao_produto[]" placeholder="Observações do Item" rows="1" style="flex:3;"></textarea>
+            <button type="button" onclick="removerProduto(this)" style="background: #c00; padding: 5px 10px;">❌</button>
+        `;
+        container.appendChild(div);
+    }
+
+    function removerProduto(botao) {
+        if(confirm('Deseja realmente remover este produto?')) {
+            botao.parentElement.remove();
+        }
+    }
+
+    function salvarDados() {
+        const cpfValue = document.getElementById('cpf').value;
+        // Valida CPF apenas se algo foi digitado
+        if (cpfValue && !validarCPF(cpfValue)) {
+            alert('CPF inválido! Por favor, corrija o CPF ou deixe o campo vazio.');
+            return;
+        }
+
+        const checklist = {};
+        checklist.higienizacao = document.querySelector('input[name="higienizacao"]:checked')?.value || '';
+        checklist.vazamento = document.querySelector('input[name="vazamento"]:checked')?.value || '';
+        checklist.cortina = document.querySelector('input[name="cortina"]:checked')?.value || '';
+        checklist.termometro = document.querySelector('input[name="termometro"]:checked')?.value || '';
+        checklist.quantidade_caixas_checklist = document.querySelector('input[name="quantidade_caixas_checklist"]:checked')?.value || '';
+        checklist.paletes_integros = document.querySelector('input[name="paletes_integros"]:checked')?.value || '';
+        checklist.observacoes = document.getElementById('observacoes_checklist').value;
+
+        const lacreStatus = document.querySelector('input[name="lacre_status"]:checked')?.value;
+        const lacre = {
+            status: lacreStatus || '',
+            codigo: lacreStatus === 'sim' ? document.getElementById('codigo_lacre').value : '',
+            motivo_sem_lacre: lacreStatus === 'nao' ? document.getElementById('motivo_sem_lacre').value : ''
+        };
+
+        const tipoCarga = document.getElementById('tipo_carga').value;
+        
+        const produtosInput = Array.from(document.querySelectorAll('.produto-item')).map(item => ({
+            codigo: item.querySelector('[name="codigo[]"]').value,
+            // Converte para número, ou null/vazio se não for um número válido
+            quantidade: parseFloat(item.querySelector('[name="quantidade[]"]').value) || (item.querySelector('[name="quantidade[]"]').value === '0' ? 0 : ''),
+            observacao: item.querySelector('[name="observacao_produto[]"]').value
+        }));
+
+        const liberacaoStatus = document.querySelector('input[name="aprovado"]:checked')?.value;
+        const liberacao = {
+            hora_liberacao: document.getElementById('hora_liberacao').value || '',
+            temp_liberacao_caminhao: parseFloat(document.getElementById('temp_liberacao_caminhao').value) || (document.getElementById('temp_liberacao_caminhao').value === '0' ? 0 : ''),
+            aprovado: liberacaoStatus || '',
+            // Coleta observações apenas se a aprovação for "nao"
+            observacoes: liberacaoStatus === 'nao' ? document.getElementById('observacoes_liberacao').value : ''
+        };
+
+        const dadosAtuais = {
+            id: Date.now(), // Usando timestamp como ID único
+            dataHoraRegistro: new Date().toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            motorista: document.getElementById('motorista').value,
+            cpf: document.getElementById('cpf').value,
+            placa: document.getElementById('placa').value,
+            data: document.getElementById('data').value,
+            cliente: document.getElementById('cliente').value,  // NOVO CAMPO ADICIONADO
+            transportadora: document.getElementById('transportadora').value, // Novo campo
+            checklist,
+            lacre,
+            hora_inicio: document.getElementById('hora_inicio').value,
+            temp_inicio_caminhao: parseFloat(document.getElementById('temp_inicio_caminhao').value) || (document.getElementById('temp_inicio_caminhao').value === '0' ? 0 : ''),
+            temp_inicio_produto: parseFloat(document.getElementById('temp_inicio_produto').value) || (document.getElementById('temp_inicio_produto').value === '0' ? 0 : ''), 
+            hora_meio: document.getElementById('hora_meio').value,
+            temp_meio_caminhao: parseFloat(document.getElementById('temp_meio_caminhao').value) || (document.getElementById('temp_meio_caminhao').value === '0' ? 0 : ''),
+            temp_meio_produto: parseFloat(document.getElementById('temp_meio_produto').value) || (document.getElementById('temp_meio_produto').value === '0' ? 0 : ''), 
+            tipo_carga: tipoCarga,
+            // Coletando paletes e caixas com base na nova lógica (se o campo estava visível e preenchido)
+            paletes: tipoCarga === 'paletizado' ? (parseFloat(document.getElementById('paletes').value) || (document.getElementById('paletes').value === '0' ? 0 : '')) : '',
+            caixas: tipoCarga !== '' ? (parseFloat(document.getElementById('caixas').value) || (document.getElementById('caixas').value === '0' ? 0 : '')) : '',
+            produtos: produtosInput,
+            hora_fim: document.getElementById('hora_fim').value,
+            temp_fim_caminhao: parseFloat(document.getElementById('temp_fim_caminhao').value) || (document.getElementById('temp_fim_caminhao').value === '0' ? 0 : ''),
+            liberacao,
+            conferente: document.getElementById('conferente').value
+        };
+
+        dadosCarregamento.push(dadosAtuais);
+        localStorage.setItem('dadosCarregamento', JSON.stringify(dadosCarregamento));
+        
+        alert('Dados salvos com sucesso no histórico local!');
+        // A função limparFormulario não é mais chamada aqui.
+    }
+
+    function gerarRelatorio(data) {
+        // Esta função agora pode receber um objeto de dados para gerar o relatório
+        // Se não for passado, usa o último dado salvo (comportamento original do botão "Relatório")
+        const dados = data || dadosCarregamento[dadosCarregamento.length - 1];
+
+        if (!dados || Object.keys(dados).length === 0) {
+            alert('Não há dados de carregamento para gerar relatório. Por favor, salve um carregamento primeiro.');
+            return;
+        }
+
+        // Função auxiliar para formatar texto do relatório (agora apenas concatena)
+        const formatReportLine = (label, value) => {
+            return `${label}: ${value}`;
+        };
+
+        const dashedLine = '-'.repeat(50); // Linha tracejada para separação
+
+        const checklistText = `
+${formatReportLine('Higienização', dados.checklist?.higienizacao || 'N/A')}
+${formatReportLine('Vazamento/Umidade', dados.checklist?.vazamento || 'N/A')}
+${formatReportLine('Cortina', dados.checklist?.cortina || 'N/A')}
+${formatReportLine('Termômetro', dados.checklist?.termometro || 'N/A')}
+${formatReportLine('Qtd Caixas Adequada', dados.checklist?.quantidade_caixas_checklist || 'N/A')}
+${formatReportLine('Paletes Íntegros', dados.checklist?.paletes_integros || 'N/A')}
+
+`.trim();
+
+        const tipoCargaText = dados.tipo_carga?.toUpperCase() || 'N/A';
+        
+        let quantidadeCargaText = '';
+        if (dados.tipo_carga === 'paletizado') {
+            quantidadeCargaText = `${formatReportLine('🔢 Paletes', dados.paletes !== '' ? dados.paletes : 'N/A')}\n${formatReportLine('📦 Caixas', dados.caixas !== '' ? dados.caixas : 'N/A')}`;
+        } else if (dados.tipo_carga === 'batido') {
+            quantidadeCargaText = `${formatReportLine('📦 Caixas', dados.caixas !== '' ? dados.caixas : 'N/A')}`;
+        } else {
+            quantidadeCargaText = formatReportLine('Quantidade da Carga', 'N/A');
+        }
+
+        const produtosText =
+            dados.produtos?.map(p => {
+                const prodCode = p.codigo || 'N/A';
+                const prodQty = p.quantidade !== '' ? p.quantidade : 'N/A';
+                const prodObs = p.observacao ? ` - Obs: ${p.observacao}` : '';
+                return `• ${prodCode} - Qtd: ${prodQty}${prodObs}`;
+            }).join('\n') || 'Nenhum produto';
+
+
+        const lacreStatusText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
+                                 dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+
+        const liberacaoStatusText = dados.liberacao?.aprovado === 'sim' ? 'Aprovado' : (dados.liberacao?.aprovado === 'nao' ? 'Não Aprovado' : 'N/A');
+        const liberacaoObsText = dados.liberacao?.aprovado === 'nao' ? formatReportLine('Observações', dados.liberacao?.observacoes || 'N/A') : '';
+
+
+        const relatorio = `
+=== DADOS DO CARREGAMENTO ===
+${dashedLine}
+${formatReportLine('ID do Registro', dados.id || 'N/A')}
+${formatReportLine('Data/Hora Registro', dados.dataHoraRegistro || 'N/A')}
+${formatReportLine('🚚 Placa', dados.placa || 'N/A')}
+${formatReportLine('👤 Motorista', dados.motorista || 'N/A')}
+${formatReportLine('CPF', dados.cpf || 'N/A')}
+${formatReportLine('📅 Data', dados.data || 'N/A')}
+${formatReportLine('Transportadora', dados.transportadora || 'N/A')}
+${formatReportLine('Cliente', dados.cliente || 'N/A')}
+${dashedLine}
+✅ Checklist:
+${checklistText}
+${formatReportLine('Observações do Checklist', dados.checklist?.observacoes || 'N/A')}
+${dashedLine}
+🔒 Lacre:
+${formatReportLine('Caminhão veio lacrado?', lacreStatusText)}
+${dashedLine}
+🌡️⏰ INÍCIO DO CARREGAMENTO:
+${formatReportLine('Hora', dados.hora_inicio || 'N/A')}
+${formatReportLine('Temp. Caminhão', `${dados.temp_inicio_caminhao !== '' ? dados.temp_inicio_caminhao : 'N/A'}°C`)}
+${formatReportLine('Temp. Produto', `${dados.temp_inicio_produto !== '' ? dados.temp_inicio_produto : 'N/A'}°C`)}
+${dashedLine}
+🌡️⏰ MEIO DO CARREGAMENTO:
+${formatReportLine('Hora', dados.hora_meio || 'N/A')}
+${formatReportLine('Temp. Caminhão', `${dados.temp_meio_caminhao !== '' ? dados.temp_meio_caminhao : 'N/A'}°C`)}
+${formatReportLine('Temp. Produto', `${dados.temp_meio_produto !== '' ? dados.temp_meio_produto : 'N/A'}°C`)}
+${dashedLine}
+📋 Produtos:
+${produtosText}
+${dashedLine}
+📦 Carga: ${tipoCargaText}
+${quantidadeCargaText}
+${dashedLine}
+🌡️⏰ FIM DO CARREGAMENTO:
+${formatReportLine('Hora', dados.hora_fim || 'N/A')}
+${formatReportLine('Temp. Caminhão', `${dados.temp_fim_caminhao !== '' ? dados.temp_fim_caminhao : 'N/A'}°C`)}
+${dashedLine}
+📋 LIBERAÇÃO:
+${formatReportLine('Hora Liberação', dados.liberacao?.hora_liberacao || 'N/A')}
+${formatReportLine('Temp. Lib. Caminhão', `${dados.liberacao?.temp_liberacao_caminhao !== '' ? dados.liberacao?.temp_liberacao_caminhao : 'N/A'}°C`)}
+${formatReportLine('Aprovação', liberacaoStatusText)}
+${liberacaoObsText}
+${dashedLine}
+${formatReportLine('👔 Conferente', dados.conferente || 'N/A')}
+        `;
+
+        document.getElementById('relatorioConteudo').textContent = relatorio;
+        document.getElementById('modalRelatorio').style.display = 'block';
+    }
+
+       function exportarParaExcel() {
+        if (dadosCarregamento.length === 0) {
+            alert('Não há dados de carregamento para exportar! Salve alguns dados primeiro.');
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+
+        const sheetDataCarregamentos = [];
+        
+        const baseHeaders = [
+            'ID do Registro', 'Data/Hora Registro', 'Placa', 'Motorista', 'CPF', 'Data Carregamento', 'Transportadora',
+            'Checklist - Higienizacao', 'Checklist - Vazamento', 'Checklist - Cortina',
+            'Checklist - Termometro', 'Checklist - Qtd Caixas Adequada (Checklist)', 'Checklist - Paletes Integros',
+            'Observacoes Checklist',
+            'Lacre - Status', 'Lacre - Codigo', 'Lacre - Motivo Sem Lacre',
+            'Hora Início', 'Temp. Início Caminhao', 'Temp. Início Produto', 
+            'Hora Meio', 'Temp. Meio Caminhao','Temp. Meio Produto (°C)', 
+            'Tipo de Carga', 'Paletes Carregados', 'Caixas Carregadas',
+            'Hora Fim', 'Temp. Fim Caminhao', 
+            'Liberação - Hora', 'Liberação - Temp. Caminhão', 
+            'Liberação - Aprovado', 'Liberação - Observações Liberação',
+            'Conferente',
+            'Cliente',
+        ];
+        
+        let maxProducts = 0;
+        dadosCarregamento.forEach(record => {
+            if (record.produtos && record.produtos.length > maxProducts) {
+                maxProducts = record.produtos.length;
+            }
+        });
+
+        const productHeaders = [];
+        for (let i = 1; i <= maxProducts; i++) {
+            productHeaders.push(`Produto ${i} - Código`);
+            productHeaders.push(`Produto ${i} - Quantidade`);
+            productHeaders.push(`Produto ${i} - Observações`);
+        }
+        sheetDataCarregamentos.push([...baseHeaders, ...productHeaders]);
+
+        dadosCarregamento.forEach(record => {
+            const row = [
+                record.id || '',
+                record.dataHoraRegistro || '',
+                record.placa || '',
+                record.motorista || '',
+                record.cpf || '',
+                record.data || '',
+                record.transportadora || '',
+                record.checklist?.higienizacao || '',
+                record.checklist?.vazamento || '',
+                record.checklist?.cortina || '',
+                record.checklist?.termometro || '',
+                record.checklist?.quantidade_caixas_checklist || '',
+                record.checklist?.paletes_integros || '',
+                record.checklist?.observacoes || '',
+                record.lacre?.status || '',
+                record.lacre?.codigo || '',
+                record.lacre?.motivo_sem_lacre || '',
+                record.hora_inicio || '',
+                record.temp_inicio_caminhao !== '' ? record.temp_inicio_caminhao : '',
+                record.temp_inicio_produto !== '' ? record.temp_inicio_produto : '',
+                record.hora_meio || '',
+                record.temp_meio_caminhao !== '' ? record.temp_meio_caminhao : '',
+                record.temp_meio_produto !== '' ? record.temp_meio_produto : '',
+                record.tipo_carga?.toUpperCase() || '',
+                record.paletes !== '' ? record.paletes : '',
+                record.caixas !== '' ? record.caixas : '',
+                record.hora_fim || '',
+                record.temp_fim_caminhao !== '' ? record.temp_fim_caminhao : '',
+                record.liberacao?.hora_liberacao || '',
+                record.liberacao?.temp_liberacao_caminhao !== '' ? record.liberacao?.temp_liberacao_caminhao : '',
+                record.liberacao?.aprovado || '',
+                record.liberacao?.observacoes || '',
+                record.conferente || ''
+            ];
+
+            // Adicionar dados dos produtos na mesma linha
+            if (record.produtos) {
+                record.produtos.forEach(p => {
+                    row.push(p.codigo || '');
+                    row.push(p.quantidade !== '' ? p.quantidade : '');
+                    row.push(p.observacao || '');
+                });
+            }
+            // Preencher com células vazias se houver menos produtos que o máximo
+            for (let i = record.produtos ? record.produtos.length : 0; i < maxProducts; i++) {
+                row.push('', '', '');
+            }
+
+            sheetDataCarregamentos.push(row);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(sheetDataCarregamentos);
+        XLSX.utils.book_append_sheet(wb, ws, "Carregamentos");
+
+        XLSX.writeFile(wb, "Controle_Carregamento.xlsx");
+    }
+
+    function limparFormulario() {
+        if (confirm('Tem certeza que deseja limpar todos os campos do formulário?')) {
+            document.getElementById('carregamentoForm').reset();
+            document.getElementById('produtos-container').innerHTML = ''; // Limpa produtos adicionados
+            document.getElementById('cliente').value = '';
+            document.getElementById('lacre_fields').style.display = 'none';
+            document.getElementById('codigo_lacre').value = '';
+            document.getElementById('motivo_sem_lacre').value = '';
+            document.getElementById('paletes_field_container').style.display = 'none';
+            document.getElementById('caixas_field_container').style.display = 'none';
+            document.getElementById('paletes').value = '';
+            document.getElementById('caixas').value = '';
+            document.getElementById('observacoes_liberacao_container').style.display = 'none';
+            document.getElementById('observacoes_liberacao').value = '';
+
+            // Desmarca todos os radios buttons
+            document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+        }
+    }
+
+    function fecharRelatorio() {
+        document.getElementById('modalRelatorio').style.display = 'none';
+    }
+
+    function fecharDadosSalvos() {
+        document.getElementById('modalDadosSalvos').style.display = 'none';
+    }
+
+    function fecharDetalhesHistorico() {
+        document.getElementById('modalDetalhesHistorico').style.display = 'none';
+    }
+
+    function verDadosSalvos() {
+        const dadosSalvosContainer = document.getElementById('dadosSalvosConteudo');
+        dadosSalvosContainer.innerHTML = ''; // Limpa o conteúdo anterior
+
+        if (dadosCarregamento.length === 0) {
+            dadosSalvosContainer.innerHTML = '<p>Nenhum dado de carregamento salvo ainda.</p>';
+            document.getElementById('modalDadosSalvos').style.display = 'block';
+            return;
+        }
+
+        // Cria a tabela
+        const table = document.createElement('table');
+        table.classList.add('historico-table');
+
+        // Cria o cabeçalho da tabela
+        const thead = table.createTHead();
+        const headerRow = thead.insertRow();
+        ['ID', 'Data/Hora Reg.', 'Motorista', 'Placa', 'Data Carga', 'Tipo Carga', 'Aprovado?', 'Ações'].forEach(text => {
+            const th = document.createElement('th');
+            th.textContent = text;
+            headerRow.appendChild(th);
+        });
+
+        // Cria o corpo da tabela e preenche com os dados
+        const tbody = table.createTBody();
+        dadosCarregamento.forEach(registro => {
+            const row = tbody.insertRow();
+            row.insertCell().textContent = registro.id;
+            row.insertCell().textContent = registro.dataHoraRegistro;
+            row.insertCell().textContent = registro.motorista;
+            row.insertCell().textContent = registro.placa;
+            row.insertCell().textContent = registro.data;
+            row.insertCell().textContent = registro.tipo_carga?.toUpperCase() || 'N/A';
+            row.insertCell().textContent = registro.liberacao?.aprovado === 'sim' ? 'Sim' : (registro.liberacao?.aprovado === 'nao' ? 'Não' : 'N/A');
+
+            const actionsCell = row.insertCell();
+            const viewButton = document.createElement('button');
+            viewButton.textContent = 'Ver Detalhes';
+            viewButton.classList.add('btn-historico-detalhe');
+            viewButton.onclick = () => verDetalhesHistorico(registro.id);
+            actionsCell.appendChild(viewButton);
+
+            const editButton = document.createElement('button');
+            editButton.textContent = 'Editar';
+            editButton.classList.add('btn-editar');
+            editButton.onclick = () => editarRegistro(registro.id);
+            actionsCell.appendChild(editButton);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Excluir';
+            deleteButton.classList.add('btn-excluir');
+            deleteButton.onclick = () => excluirRegistro(registro.id);
+            actionsCell.appendChild(deleteButton);
+        });
+
+        dadosSalvosContainer.appendChild(table);
+        document.getElementById('modalDadosSalvos').style.display = 'block';
+    }
+
+    // Função para ver detalhes de um registro específico no novo modal
+    function verDetalhesHistorico(id) {
+        const registro = dadosCarregamento.find(d => d.id === id);
+        if (registro) {
+            // Reutiliza a função gerarRelatorio, passando o registro específico
+            const formatReportLine = (label, value) => {
+                return `${label}: ${value}`;
+            };
+
+            const dashedLine = '-'.repeat(50); 
+
+            const checklistText = `
+${formatReportLine('Higienização', registro.checklist?.higienizacao || 'N/A')}
+${formatReportLine('Vazamento/Umidade', registro.checklist?.vazamento || 'N/A')}
+${formatReportLine('Cortina', registro.checklist?.cortina || 'N/A')}
+${formatReportLine('Termômetro', registro.checklist?.termometro || 'N/A')}
+${formatReportLine('Qtd Caixas Adequada', registro.checklist?.quantidade_caixas_checklist || 'N/A')}
+${formatReportLine('Paletes Íntegros', registro.checklist?.paletes_integros || 'N/A')}
+`.trim();
+
+            const tipoCargaText = registro.tipo_carga?.toUpperCase() || 'N/A';
+            
+            let quantidadeCargaText = '';
+            if (registro.tipo_carga === 'paletizado') {
+                quantidadeCargaText = `${formatReportLine('🔢 Paletes', registro.paletes !== '' ? registro.paletes : 'N/A')}\n${formatReportLine('📦 Caixas', registro.caixas !== '' ? registro.caixas : 'N/A')}`;
+            } else if (registro.tipo_carga === 'batido') {
+                quantidadeCargaText = `${formatReportLine('📦 Caixas', registro.caixas !== '' ? registro.caixas : 'N/A')}`;
+            } else {
+                quantidadeCargaText = formatReportLine('Quantidade da Carga', 'N/A');
+            }
+
+            const produtosText =
+                registro.produtos?.map(p => {
+                    const prodCode = p.codigo || 'N/A';
+                    const prodQty = p.quantidade !== '' ? p.quantidade : 'N/A';
+                    const prodObs = p.observacao ? ` - Obs: ${p.observacao}` : '';
+                    return `• ${prodCode} - Qtd: ${prodQty}${prodObs}`;
+                }).join('\n') || 'Nenhum produto';
+
+            const lacreStatusText = registro.lacre?.status === 'sim' ? `Sim (Código: ${registro.lacre?.codigo || 'N/A'})` :
+                                     registro.lacre?.status === 'nao' ? `Não (Motivo: ${registro.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+
+            const liberacaoStatusText = registro.liberacao?.aprovado === 'sim' ? 'Aprovado' : (registro.liberacao?.aprovado === 'nao' ? 'Não Aprovado' : 'N/A');
+            const liberacaoObsText = registro.liberacao?.aprovado === 'nao' ? formatReportLine('Observações', registro.liberacao?.observacoes || 'N/A') : '';
+
+            const detalhes = `
+=== DETALHES DO CARREGAMENTO ===
+${dashedLine}
+${formatReportLine('ID do Registro', registro.id || 'N/A')}
+${formatReportLine('Data/Hora Registro', registro.dataHoraRegistro || 'N/A')}
+${formatReportLine('🚚 Placa', registro.placa || 'N/A')}
+${formatReportLine('👤 Motorista', registro.motorista || 'N/A')}
+${formatReportLine('CPF', registro.cpf || 'N/A')}
+${formatReportLine('📅 Data', registro.data || 'N/A')}
+${dashedLine}
+✅ Checklist:
+${checklistText}
+${formatReportLine('Observações do Checklist', registro.checklist?.observacoes || 'N/A')}
+${dashedLine}
+🔒 Lacre:
+${formatReportLine('Caminhão esta saindo lacrado?', lacreStatusText)}
+${dashedLine}
+🌡️⏰ INÍCIO DO CARREGAMENTO:
+${formatReportLine('Hora', registro.hora_inicio || 'N/A')}
+${formatReportLine('Temp. Caminhão', `${registro.temp_inicio_caminhao !== '' ? registro.temp_inicio_caminhao : 'N/A'}°C`)}
+${formatReportLine('Temp. Produto', `${registro.temp_inicio_produto !== '' ? registro.temp_inicio_produto : 'N/A'}°C`)}
+${dashedLine}
+🌡️⏰ MEIO DO CARREGAMENTO:
+${formatReportLine('Hora', registro.hora_meio || 'N/A')}
+${formatReportLine('Temp. Caminhão', `${registro.temp_meio_caminhao !== '' ? registro.temp_meio_caminhao : 'N/A'}°C`)}
+${dashedLine}
+📋 Produtos:
+${produtosText}
+${dashedLine}
+📦 Carga: ${tipoCargaText}
+${quantidadeCargaText}
+${dashedLine}
+🌡️⏰ FIM DO CARREGAMENTO:
+${formatReportLine('Hora', registro.hora_fim || 'N/A')}
+${formatReportLine('Temp. Caminhão', `${registro.temp_fim_caminhao !== '' ? registro.temp_fim_caminhao : 'N/A'}°C`)}
+${dashedLine}
+📋 LIBERAÇÃO:
+${formatReportLine('Hora Liberação', registro.liberacao?.hora_liberacao || 'N/A')}
+${formatReportLine('Temp. Lib. Caminhão', `${registro.liberacao?.temp_liberacao_caminhao !== '' ? registro.liberacao?.temp_liberacao_caminhao : 'N/A'}°C`)}
+${formatReportLine('Aprovação', liberacaoStatusText)}
+${liberacaoObsText}
+${dashedLine}
+${formatReportLine('👔 Conferente', registro.conferente || 'N/A')}
+            `;
+
+            document.getElementById('detalhesHistoricoConteudo').textContent = detalhes;
+            document.getElementById('modalDetalhesHistorico').style.display = 'block';
+        } else {
+            alert('Registro não encontrado.');
+        }
+    }
+
+    function editarRegistro(id) {
+        const index = dadosCarregamento.findIndex(d => d.id === id);
+        if (index > -1) {
+            const registroParaEditar = dadosCarregamento[index];
+
+            // Preenche o formulário com os dados do registro
+            document.getElementById('motorista').value = registroParaEditar.motorista || '';
+            document.getElementById('cpf').value = registroParaEditar.cpf || '';
+            document.getElementById('placa').value = registroParaEditar.placa || '';
+            document.getElementById('data').value = registroParaEditar.data || '';
+            document.getElementById('cliente').value = registroParaEditar.cliente || '';
+
+            // Checklist
+            document.querySelector(`input[name="higienizacao"][value="${registroParaEditar.checklist?.higienizacao}"]`)?.click();
+            document.querySelector(`input[name="vazamento"][value="${registroParaEditar.checklist?.vazamento}"]`)?.click();
+            document.querySelector(`input[name="cortina"][value="${registroParaEditar.checklist?.cortina}"]`)?.click();
+            document.querySelector(`input[name="termometro"][value="${registroParaEditar.checklist?.termometro}"]`)?.click();
+            document.querySelector(`input[name="quantidade_caixas_checklist"][value="${registroParaEditar.checklist?.quantidade_caixas_checklist}"]`)?.click();
+            document.querySelector(`input[name="paletes_integros"][value="${registroParaEditar.checklist?.paletes_integros}"]`)?.click();
+            document.getElementById('observacoes_checklist').value = registroParaEditar.checklist?.observacoes || '';
+
+            // Lacre
+            document.querySelector(`input[name="lacre_status"][value="${registroParaEditar.lacre?.status}"]`)?.click();
+            document.getElementById('codigo_lacre').value = registroParaEditar.lacre?.codigo || '';
+            document.getElementById('motivo_sem_lacre').value = registroParaEditar.lacre?.motivo_sem_lacre || '';
+            toggleLacreFields(); // Garante que os campos de lacre sejam exibidos/escondidos corretamente
+
+            document.getElementById('hora_inicio').value = registroParaEditar.hora_inicio || '';
+            document.getElementById('temp_inicio_caminhao').value = registroParaEditar.temp_inicio_caminhao !== '' ? registroParaEditar.temp_inicio_caminhao : '';
+            document.getElementById('temp_inicio_produto').value = registroParaEditar.temp_inicio_produto !== '' ? registroParaEditar.temp_inicio_produto : '';
+            document.getElementById('hora_meio').value = registroParaEditar.hora_meio || '';
+            document.getElementById('temp_meio_caminhao').value = registroParaEditar.temp_meio_caminhao !== '' ? registroParaEditar.temp_meio_caminhao : '';
+
+            // Produtos
+            const produtosContainer = document.getElementById('produtos-container');
+            produtosContainer.innerHTML = ''; // Limpa os produtos existentes
+            if (registroParaEditar.produtos && registroParaEditar.produtos.length > 0) {
+                registroParaEditar.produtos.forEach(produto => {
+                    adicionarProduto(); // Adiciona um novo campo de produto
+                    const lastProductItem = produtosContainer.lastChild;
+                    lastProductItem.querySelector('[name="codigo[]"]').value = produto.codigo || '';
+                    lastProductItem.querySelector('[name="quantidade[]"]').value = produto.quantidade !== '' ? produto.quantidade : '';
+                    lastProductItem.querySelector('[name="observacao_produto[]"]').value = produto.observacao || '';
+                });
+            }
+
+            // Tipo de Carga
+            document.getElementById('tipo_carga').value = registroParaEditar.tipo_carga || '';
+            mostrarCamposDinamicos(); // Garante que os campos de carga sejam exibidos/escondidos corretamente
+            document.getElementById('paletes').value = registroParaEditar.paletes !== '' ? registroParaEditar.paletes : '';
+            document.getElementById('caixas').value = registroParaEditar.caixas !== '' ? registroParaEditar.caixas : '';
+
+            document.getElementById('hora_fim').value = registroParaEditar.hora_fim || '';
+            document.getElementById('temp_fim_caminhao').value = registroParaEditar.temp_fim_caminhao !== '' ? registroParaEditar.temp_fim_caminhao : '';
+
+            // Liberação
+            document.getElementById('hora_liberacao').value = registroParaEditar.liberacao?.hora_liberacao || '';
+            document.getElementById('temp_liberacao_caminhao').value = registroParaEditar.liberacao?.temp_liberacao_caminhao !== '' ? registroParaEditar.temp_liberacao_caminhao : '';
+            document.querySelector(`input[name="aprovado"][value="${registroParaEditar.liberacao?.aprovado}"]`)?.click();
+            document.getElementById('observacoes_liberacao').value = registroParaEditar.liberacao?.observacoes || '';
+            toggleObservacoesLiberacao(); // Garante que as observações de liberação sejam exibidas/escondidas
+
+            document.getElementById('conferente').value = registroParaEditar.conferente || '';
+
+            // Remove o registro do array e do localStorage temporariamente para que possa ser "salvo" novamente com as edições
+            dadosCarregamento.splice(index, 1);
+            localStorage.setItem('dadosCarregamento', JSON.stringify(dadosCarregamento));
+            alert('Dados carregados para edição. Após as modificações, clique em "Salvar" novamente.');
+
+            fecharDadosSalvos(); // Fecha o modal de histórico
+        } else {
+            alert('Registro não encontrado para edição.');
+        }
+    }
+
+    function excluirRegistro(id) {
+        if (confirm('Tem certeza que deseja excluir este registro de carregamento?')) {
+            dadosCarregamento = dadosCarregamento.filter(d => d.id !== id);
+            localStorage.setItem('dadosCarregamento', JSON.stringify(dadosCarregamento));
+            alert('Registro excluído com sucesso!');
+            verDadosSalvos(); // Atualiza a exibição do histórico
+        }
+    }
+
+    // Inicializa a visibilidade dos campos dinâmicos ao carregar a página
+    window.onload = () => {
+        mostrarCamposDinamicos();
+        toggleLacreFields();
+        toggleObservacoesLiberacao();
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Logístico Integrado</title>
+    <style>
+        :root {
+            --vermelho: #8B0000;
+            --fundo: #F5F5F5;
+            --sombra-vinho: rgba(139, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: var(--fundo);
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: white;
+            background: var(--vermelho);
+            padding: 20px;
+            margin: -15px -15px 20px -15px;
+            text-align: center;
+            font-size: 1.4em;
+            box-shadow: 0 2px 8px var(--sombra-vinho);
+        }
+
+        .container-formularios {
+            max-width: 800px;
+            margin: 0 auto;
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .card-formulario {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px var(--sombra-vinho);
+            text-align: center;
+        }
+
+        .card-formulario h2 {
+            color: var(--vermelho);
+            margin: 0 0 15px 0;
+            font-size: 1.2em;
+        }
+
+        .botao-formulario {
+            background: var(--vermelho);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        .botao-formulario:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        .descricao-formulario {
+            color: #666;
+            font-size: 0.9em;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .container-formularios {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>CONTROLE LOGÍSTICO INTEGRADO</h1>
+
+<div class="container-formularios">
+    <!-- Card para Controle de Carregamento -->
+    <div class="card-formulario">
+        <h2>🚚 Controle de Carregamento</h2>
+        <p class="descricao-formulario">
+            Registro completo de carregamentos com checklist, controle térmico e acompanhamento de produtos.
+        </p>
+        <a href="carregamento.html" class="botao-formulario">Abrir Formulário</a>
+    </div>
+
+    <!-- Card para Controle de Recebimento -->
+    <div class="card-formulario">
+        <h2>📦 Controle de Recebimento</h2>
+        <p class="descricao-formulario">
+            Gestão de recebimentos com verificação documental, checklist de qualidade e registro de divergências.
+        </p>
+        <a href="recebimento.html" class="botao-formulario">Abrir Formulário</a>
+    </div>
+</div>
+
+</body>
+</html>

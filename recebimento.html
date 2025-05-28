@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Controle de Recebimento</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* Mantendo exatamente o mesmo CSS original */
+        :root {
+            --vermelho: #8B0000;
+            --fundo: #F5F5F5;
+            /* Definindo a cor vinho para as sombras */
+            --sombra-vinho: rgba(139, 0, 0, 0.3); /* Vermelho escuro com 30% de opacidade */
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: var(--fundo);
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: white;
+            background: var(--vermelho);
+            padding: 20px;
+            margin: -15px -15px 20px -15px;
+            text-align: center;
+            font-size: 1.4em;
+            box-shadow: 0 2px 8px var(--sombra-vinho); /* Sombra mais destacada e vinho */
+        }
+
+        .secao {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px var(--sombra-vinho); /* Sombra mais destacada e vinho */
+        }
+
+        .titulo-secao {
+            color: var(--vermelho);
+            margin: 0 0 15px 0;
+            font-weight: bold;
+            font-size: 1.1em;
+            border-bottom: 2px solid var(--vermelho);
+            padding-bottom: 5px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        /* Ajuste para os botões */
+        .grupo-botoes {
+            display: flex; /* Usando flexbox para alinhar na horizontal */
+            flex-wrap: wrap; /* Permite que os botões quebrem para a linha de baixo se não houver espaço */
+            gap: 10px; /* Espaçamento entre os botões */
+            margin-top: 20px;
+            justify-content: center; /* Centraliza os botões */
+            align-items: stretch; /* Garante que os botões tenham a mesma altura */
+        }
+
+        button {
+            background: var(--vermelho);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-grow: 1; /* Permite que os botões cresçam para preencher o espaço disponível */
+            min-width: 120px; /* Largura mínima para os botões */
+            max-width: 180px; /* Largura máxima para os botões em telas maiores */
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        .checklist {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 10px;
+        }
+
+        .checklist label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+
+        .checklist label input[type="radio"] {
+            margin-right: 5px;
+            width: auto; /* Para não ocupar 100% da largura */
+        }
+
+        @media (min-width: 768px) {
+            body {
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+        }
+
+        .modal-relatorio, .modal-dados-salvos, .custom-alert-modal, .custom-confirm-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-relatorio .conteudo-modal, .modal-dados-salvos .conteudo-modal, .custom-alert-modal-content, .custom-confirm-modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px var(--sombra-vinho);
+            width: 95%;
+            max-width: 900px;
+            position: relative;
+            overflow-y: auto;
+            max-height: 90vh;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .custom-alert-modal-content, .custom-confirm-modal-content {
+            max-width: 400px;
+            text-align: center;
+            padding-bottom: 10px; /* Espaço para os botões */
+        }
+
+        .modal-relatorio .fechar-modal, .modal-dados-salvos .fechar-modal, .custom-alert-modal-close, .custom-confirm-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .modal-relatorio .fechar-modal:hover,
+        .modal-relatorio .fechar-modal:focus,
+        .modal-dados-salvos .fechar-modal:hover,
+        .modal-dados-salvos .fechar-modal:focus,
+        .custom-alert-modal-close:hover,
+        .custom-alert-modal-close:focus,
+        .custom-confirm-modal-close:hover,
+        .custom-confirm-modal-close:focus {
+            color: #000;
+            text-decoration: none;
+        }
+
+        /* Garantir que o conteúdo do relatório esteja alinhado à esquerda no elemento <pre> */
+        #relatorioConteudo {
+            text-align: left;
+        }
+
+        .produto-item {
+            display: flex;
+            flex-wrap: wrap; /* Permite que os itens quebrem linha em telas menores */
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            /* LINHA TRACEJADA RESTAURADA AQUI */
+            border: 1px dashed #ddd; 
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .produto-item input,
+        .produto-item select,
+        .produto-item textarea {
+            margin: 0;
+            min-width: 80px;
+            flex: 1; /* Permite que os inputs ocupem espaço flexível */
+        }
+        /* Ajuste para inputs dentro de produto-item para telas menores */
+        @media (max-width: 480px) {
+            .produto-item input,
+            .produto-item select,
+            .produto-item textarea {
+                flex-basis: 100%; /* Cada input ocupa 100% da largura em telas muito pequenas */
+            }
+        }
+
+        .lacre-fields {
+            margin-top: 10px;
+        }
+        .lacre-fields input[type="text"],
+        .lacre-fields textarea {
+            margin-top: 5px;
+        }
+
+        /* Estilo para os botões dos modais de alerta/confirmação */
+        .custom-modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .custom-modal-buttons button {
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+
+        .custom-modal-buttons .btn-ok {
+            background-color: var(--vermelho);
+            color: white;
+            border: none;
+        }
+
+        .custom-modal-buttons .btn-ok:hover {
+            background-color: #a00;
+        }
+
+        .custom-modal-buttons .btn-cancel {
+            background-color: #ccc;
+            color: #333;
+            border: 1px solid #bbb;
+        }
+
+        .custom-modal-buttons .btn-cancel:hover {
+            background-color: #bbb;
+        }
+    </style>
+</head>
+<body>
+
+<h1>CONTROLE DE RECEBIMENTO</h1>
+
+<div id="modalRelatorio" class="modal-relatorio">
+    <div class="conteudo-modal">
+        <span class="fechar-modal" onclick="fecharRelatorio()">&times;</span>
+        <pre id="relatorioConteudo"></pre>
+    </div>
+</div>
+
+<div id="modalDadosSalvos" class="modal-dados-salvos">
+    <div class="conteudo-modal">
+        <span class="fechar-modal" onclick="fecharDadosSalvos()">&times;</span>
+        <h2 style="color: var(--vermelho); margin-top: 0;">Dados de Recebimento Salvos</h2>
+        <div id="dadosSalvosConteudo" style="max-height: 70vh; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<div id="customAlertModal" class="custom-alert-modal">
+    <div class="custom-alert-modal-content">
+        <span class="custom-alert-modal-close" onclick="closeAlert()">&times;</span>
+        <p id="customAlertMessage"></p>
+        <div class="custom-modal-buttons">
+            <button class="btn-ok" onclick="closeAlert()">OK</button>
+        </div>
+    </div>
+</div>
+
+<div id="customConfirmModal" class="custom-confirm-modal">
+    <div class="custom-confirm-modal-content">
+        <span class="custom-confirm-modal-close" onclick="closeConfirm(false)">&times;</span>
+        <p id="customConfirmMessage"></p>
+        <div class="custom-modal-buttons">
+            <button class="btn-cancel" onclick="closeConfirm(false)">Cancelar</button>
+            <button class="btn-ok" onclick="closeConfirm(true)">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+
+<form id="recebimentoForm">
+    <div class="secao">
+        <div class="titulo-secao">🚚 DADOS DO RECEBIMENTO</div>
+        <input type="text" id="motorista" placeholder="Nome do motorista">
+        <input type="text" id="cpf_motorista" placeholder="CPF do motorista">
+        <input type="text" id="transportadora" placeholder="Nome da Transportadora">
+        <input type="text" id="placa" placeholder="Placa do veículo">
+        <input type="date" id="data_recebimento">
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">✅ CHECKLIST DE RECEBIMENTO</div>
+        <div class="checklist">
+            <label>
+                Integridade da Embalagem (Avarias/Danos)?
+                <input type="radio" name="integridade_embalagem" value="sim"> Sim
+                <input type="radio" name="integridade_embalagem" value="nao"> Não
+            </label>
+            <label>
+                Mercadoria conforme Pedido/NF (Produto e Qtd.)?
+                <input type="radio" name="conformidade_mercadoria" value="sim"> Sim
+                <input type="radio" name="conformidade_mercadoria" value="nao"> Não
+            </label>
+            <label>
+                Veículo e Carga em boas condições de higiene?
+                <input type="radio" name="higiene_carga" value="sim"> Sim
+                <input type="radio" name="higiene_carga" value="nao"> Não
+            </label>
+            <label>
+                Presença de Pragas/Insetos/Odores estranhos?
+                <input type="radio" name="pragas_odores" value="sim"> Sim
+                <input type="radio" name="pragas_odores" value="nao"> Não
+            </label>
+            <label>
+                Termômetro ou equipamento de medição funcionando?
+                <input type="radio" name="termometro_funcionando" value="sim"> Sim
+                <input type="radio" name="termometro_funcionando" value="nao"> Não
+            </label>
+            <label>
+                Lacre do fornecedor intacto (se aplicável)?
+                <input type="radio" name="lacre_fornecedor_intacto" value="sim"> Sim
+                <input type="radio" name="lacre_fornecedor_intacto" value="nao"> Não
+            </label>
+        </div>
+        <label for="observacoes_checklist_recebimento">Observações do Checklist:</label>
+        <textarea id="observacoes_checklist_recebimento" name="observacoes_checklist_recebimento" rows="3"></textarea>
+    </div>
+
+    <div class="secao">
+    <div class="titulo-secao">📄 DADOS DA NOTA FISCAL</div>
+    <div class="checklist">
+        <label>
+            Tipo de Recebimento:
+            <input type="radio" name="tipo_documento" value="devolucao"> Devolução
+            <input type="radio" name="tipo_documento" value="recebimento" checked> Recebimento
+        </label>
+    </div>
+    <input type="text" id="numero_nf" placeholder="Número da Nota Fiscal">
+</div>
+
+    <div class="secao">
+        <div class="titulo-secao">🏭 DADOS DO FORNECEDOR</div>
+        <input type="text" id="nome_fornecedor" placeholder="Nome do Fornecedor">
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">🔒 LACRE</div>
+        <div class="checklist">
+            <label>
+                Caminhão está lacrado?
+                <input type="radio" name="lacre_status" value="sim" onchange="toggleLacreFields()"> Sim
+                <input type="radio" name="lacre_status" value="nao" onchange="toggleLacreFields()"> Não
+            </label>
+        </div>
+        <div id="lacre_fields" class="lacre-fields" style="display:none;">
+            <input type="text" id="codigo_lacre" placeholder="Código do Lacre">
+            <textarea id="motivo_sem_lacre" placeholder="Motivo pelo qual não veio lacrado" rows="3"></textarea>
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">🌡️⏰ INÍCIO DO RECEBIMENTO</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+            <input type="time" id="hora_inicio">
+            <input type="number" id="temp_inicio_caminhao" placeholder="Temp. Caminhão (°C)" step="0.1">
+            <input type="number" id="temp_inicio_produto" placeholder="Temp. Produto (°C)" step="0.1">
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">🌡️⏰ MEIO DO RECEBIMENTO</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+            <input type="time" id="hora_meio">
+            <input type="number" id="temp_meio_caminhao" placeholder="Temp. Caminhão (°C)" step="0.1">
+            <input type="number" id="temp_meio_produto" placeholder="Temp. Produto (°C)" step="0.1">
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">🌡️⏰ FIM DO RECEBIMENTO</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+            <input type="time" id="hora_fim">
+            <input type="number" id="temp_fim_caminhao" placeholder="Temp. Caminhão (°C)" step="0.1">
+            <input type="number" id="temp_fim_produto" placeholder="Temp. Produto (°C)" step="0.1">
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">📦 MIX DE PRODUTOS</div>
+        <div class="checklist">
+            <label>
+                Houve palete com mix de produtos?
+                <input type="radio" name="mix_produtos" value="sim" onchange="toggleMixProdutos()"> Sim
+                <input type="radio" name="mix_produtos" value="nao" onchange="toggleMixProdutos()"> Não
+            </label>
+        </div>
+        <div id="mix_produtos_fields" style="display:none;">
+            <input type="number" id="qtd_paletes_mix" placeholder="Quantidade de paletes" min="0">
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">📦 PRODUTOS</div>
+        <div id="produtos-container"></div>
+        <button type="button" onclick="adicionarProduto()">➕ Adicionar Produto</button>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">📦 TIPO DE CARGA</div>
+        <select id="tipo_carga" onchange="mostrarCamposDinamicos()">
+            <option value="">Selecione o tipo...</option>
+            <option value="paletizado">Paletizado</option>
+            <option value="batido">Batido</option>
+        </select>
+
+        <div id="caixas_field_container" style="display:none">
+            <input type="number" id="caixas" placeholder="Quantidade de caixas" min="0">
+        </div>
+
+        <div id="paletes_field_container" style="display:none">
+            <input type="number" id="paletes" placeholder="Quantidade de paletes" min="0">
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">✅ STATUS DO RECEBIMENTO</div>
+        <div class="checklist">
+            <label>
+                Status da Entrega:
+                <input type="radio" name="status_entrega" value="completo" onchange="toggleMotivoDivergencia()"> Completo
+                <input type="radio" name="status_entrega" value="parcial" onchange="toggleMotivoDivergencia()"> Parcial
+                <input type="radio" name="status_entrega" value="recusado" onchange="toggleMotivoDivergencia()"> Recusado
+            </label>
+        </div>
+        <div id="motivo_divergencia_container" style="display:none;">
+            <label for="motivo_divergencia">Motivo (Divergência/Recusa):</label>
+            <textarea id="motivo_divergencia" name="motivo_divergencia" rows="3"></textarea>
+        </div>
+    </div>
+
+    <div class="secao">
+        <div class="titulo-secao">👨‍💼 CONFERENTE</div>
+        <input type="text" id="conferente_recebimento" placeholder="Nome do conferente">
+    </div>
+
+    <div class="grupo-botoes">
+        <button type="button" onclick="salvarDados()">💾 Salvar</button>
+        <button type="button" onclick="gerarRelatorio()">📊 Relatório</button>
+        <button type="button" onclick="exportarParaExcel()">📤 Ver Excel</button>
+        <button type="button" onclick="limparFormulario()">🧹 Limpar Formulário</button>
+        <button type="button" onclick="verDadosSalvos()">📂 Ver Histórico</button>
+        <button type="button" onclick="window.location.href='inicio.html'">🏠 Início</button>
+    </div>
+</form>
+
+<script>
+    let dadosRecebimento = JSON.parse(localStorage.getItem('dadosRecebimento')) || [];
+    let confirmCallback = null; // Callback para o modal de confirmação
+
+    // Funções para o modal de alerta personalizado
+    function showAlert(message) {
+        document.getElementById('customAlertMessage').textContent = message;
+        document.getElementById('customAlertModal').style.display = 'flex';
+    }
+
+    function closeAlert() {
+        document.getElementById('customAlertModal').style.display = 'none';
+    }
+
+    // Funções para o modal de confirmação personalizado
+    function showConfirm(message, callback) {
+        confirmCallback = callback;
+        document.getElementById('customConfirmMessage').textContent = message;
+        document.getElementById('customConfirmModal').style.display = 'flex';
+    }
+
+    function closeConfirm(result) {
+        document.getElementById('customConfirmModal').style.display = 'none';
+        if (confirmCallback) {
+            confirmCallback(result);
+            confirmCallback = null; // Limpa o callback
+        }
+    }
+
+    // Função para mostrar/esconder campos do lacre
+    function toggleLacreFields() {
+        const lacreStatus = document.querySelector('input[name="lacre_status"]:checked')?.value;
+        const lacreFieldsDiv = document.getElementById('lacre_fields');
+        const codigoLacreInput = document.getElementById('codigo_lacre');
+        const motivoSemLacreTextarea = document.getElementById('motivo_sem_lacre');
+
+        if (lacreStatus === 'sim') {
+            lacreFieldsDiv.style.display = 'block';
+            codigoLacreInput.style.display = 'block';
+            motivoSemLacreTextarea.style.display = 'none';
+            motivoSemLacreTextarea.value = ''; // Limpa o motivo se for lacrado
+        } else if (lacreStatus === 'nao') {
+            lacreFieldsDiv.style.display = 'block';
+            codigoLacreInput.style.display = 'none';
+            motivoSemLacreTextarea.style.display = 'block';
+            codigoLacreInput.value = ''; // Limpa o código se não for lacrado
+        } else {
+            lacreFieldsDiv.style.display = 'none';
+            codigoLacreInput.value = '';
+            motivoSemLacreTextarea.value = '';
+        }
+    }
+
+    // Função para mostrar/esconder campos de tipo de carga (paletizado/batido)
+    function mostrarCamposDinamicos() {
+        const tipoCarga = document.getElementById('tipo_carga').value;
+        document.getElementById('caixas_field_container').style.display = 'none';
+        document.getElementById('paletes_field_container').style.display = 'none';
+        document.getElementById('caixas').value = '';
+        document.getElementById('paletes').value = '';
+
+        if (tipoCarga === 'batido') {
+            document.getElementById('caixas_field_container').style.display = 'block';
+        } else if (tipoCarga === 'paletizado') {
+            document.getElementById('paletes_field_container').style.display = 'block';
+        }
+    }
+
+    // Função para mostrar/esconder campos de motivo de divergência/recusa
+    function toggleMotivoDivergencia() {
+        const statusEntrega = document.querySelector('input[name="status_entrega"]:checked')?.value;
+        const motivoContainer = document.getElementById('motivo_divergencia_container');
+        const motivoTextarea = document.getElementById('motivo_divergencia');
+
+        if (statusEntrega === 'parcial' || statusEntrega === 'recusado') {
+            motivoContainer.style.display = 'block';
+        } else {
+            motivoContainer.style.display = 'none';
+            motivoTextarea.value = ''; // Limpa o conteúdo se não for parcial/recusado
+        }
+    }
+
+    // Função nova para controle do Mix de Produtos
+    function toggleMixProdutos() {
+        const mixStatus = document.querySelector('input[name="mix_produtos"]:checked')?.value;
+        const mixFields = document.getElementById('mix_produtos_fields');
+        
+        if (mixStatus === 'sim') {
+            mixFields.style.display = 'block';
+        } else {
+            mixFields.style.display = 'none';
+            document.getElementById('qtd_paletes_mix').value = '';
+        }
+    }
+
+    function validarCPF(cpf) {
+        cpf = cpf.replace(/\D/g, '');
+        if (cpf.length === 0) return true; // Permite vazio
+        if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+        let soma = 0;
+        for (let i = 0; i < 9; i++) soma += parseInt(cpf.charAt(i)) * (10 - i);
+        let resto = (soma * 10) % 11;
+        if (resto === 10 || resto === 11) resto = 0;
+        if (resto !== parseInt(cpf.charAt(9))) return false;
+        soma = 0;
+        for (let i = 0; i < 10; i++) soma += parseInt(cpf.charAt(i)) * (11 - i);
+        resto = (soma * 10) % 11;
+        return resto === parseInt(cpf.charAt(10));
+    }
+
+    // Formatação de CPF do motorista
+    document.getElementById('cpf_motorista').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        value = value.substring(0, 11);
+        value = value.replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        e.target.value = value;
+    });
+
+    function adicionarProduto() {
+        const container = document.getElementById('produtos-container');
+        const div = document.createElement('div');
+        div.classList.add('produto-item');
+
+        div.innerHTML = `
+            <input type="text" name="codigo_produto[]" placeholder="Código" style="flex:1;">
+            <input type="number" name="quantidade_recebida[]" placeholder="Qtd Recebida" min="0" style="flex:1;">
+            <input type="text" name="data_validade[]" placeholder="Data Validade (dd/mm/aaaa)" style="flex:1;"> 
+            <textarea name="observacao_produto_item[]" placeholder="Obs. do Item" rows="1" style="flex:2;"></textarea>
+            <button type="button" onclick="removerProduto(this)" style="background: #c00; padding: 5px 10px;">❌</button>
+        `;
+        container.appendChild(div);
+    }
+
+    function removerProduto(botao) {
+        showConfirm('Deseja realmente remover este produto?', (result) => {
+            if (result) {
+                botao.parentElement.remove();
+            }
+        });
+    }
+
+    function salvarDados() {
+        const cpfMotoristaValue = document.getElementById('cpf_motorista').value;
+        if (cpfMotoristaValue && !validarCPF(cpfMotoristaValue)) {
+            showAlert('CPF do motorista inválido! Por favor, corrija o CPF ou deixe o campo vazio.');
+            return;
+        }
+
+        // Captura o tipo de documento
+        const tipoDocumento = document.querySelector('input[name="tipo_documento"]:checked')?.value || '';
+
+        const lacreStatus = document.querySelector('input[name="lacre_status"]:checked')?.value || '';
+        const lacreData = {
+            status: lacreStatus,
+            codigo: lacreStatus === 'sim' ? document.getElementById('codigo_lacre').value : '',
+            motivo_sem_lacre: lacreStatus === 'nao' ? document.getElementById('motivo_sem_lacre').value : ''
+        };
+
+        const checklist = {};
+        checklist.integridade_embalagem = document.querySelector('input[name="integridade_embalagem"]:checked')?.value || '';
+        checklist.conformidade_mercadoria = document.querySelector('input[name="conformidade_mercadoria"]:checked')?.value || '';
+        checklist.higiene_carga = document.querySelector('input[name="higiene_carga"]:checked')?.value || '';
+        checklist.pragas_odores = document.querySelector('input[name="pragas_odores"]:checked')?.value || '';
+        checklist.termometro_funcionando = document.querySelector('input[name="termometro_funcionando"]:checked')?.value || '';
+        checklist.lacre_fornecedor_intacto = document.querySelector('input[name="lacre_fornecedor_intacto"]:checked')?.value || '';
+        checklist.observacoes = document.getElementById('observacoes_checklist_recebimento').value;
+
+        const produtosInput = Array.from(document.querySelectorAll('.produto-item')).map(item => ({
+            codigo: item.querySelector('[name="codigo_produto[]"]').value,
+            quantidade_recebida: parseFloat(item.querySelector('[name="quantidade_recebida[]"]').value) || (item.querySelector('[name="quantidade_recebida[]"]').value === '0' ? 0 : ''),
+            data_validade: item.querySelector('[name="data_validade[]"]').value, 
+            observacao: item.querySelector('[name="observacao_produto_item[]"]').value
+        }));
+
+        const tipoCarga = document.getElementById('tipo_carga').value;
+        const cargaData = {
+            tipo: tipoCarga,
+            caixas: tipoCarga === 'batido' ? (parseFloat(document.getElementById('caixas').value) || (document.getElementById('caixas').value === '0' ? 0 : '')) : '',
+            paletes: tipoCarga === 'paletizado' ? (parseFloat(document.getElementById('paletes').value) || (document.getElementById('paletes').value === '0' ? 0 : '')) : ''
+        };
+
+        const statusEntrega = document.querySelector('input[name="status_entrega"]:checked')?.value;
+        const recebimentoStatus = {
+            status: statusEntrega || '',
+            motivo_divergencia: (statusEntrega === 'parcial' || statusEntrega === 'recusado') ? document.getElementById('motivo_divergencia').value : ''
+        };
+
+        const mixProdutos = {
+            status: document.querySelector('input[name="mix_produtos"]:checked')?.value || '',
+            qtd_paletes: document.querySelector('input[name="mix_produtos"]:checked')?.value === 'sim' 
+                                     ? (parseFloat(document.getElementById('qtd_paletes_mix').value) || (document.getElementById('qtd_paletes_mix').value === '0' ? 0 : ''))
+                                     : ''
+        };
+
+        const dadosAtuais = {
+            id: Date.now(),
+            dataHoraRegistro: new Date().toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            tipo_documento: tipoDocumento, 
+            motorista: document.getElementById('motorista').value,
+            cpf_motorista: document.getElementById('cpf_motorista').value,
+            transportadora: document.getElementById('transportadora').value,
+            placa: document.getElementById('placa').value,
+            data_recebimento: document.getElementById('data_recebimento').value,
+            numero_nf: document.getElementById('numero_nf').value,
+            nome_fornecedor: document.getElementById('nome_fornecedor').value,
+            lacre: lacreData,
+            hora_inicio_recebimento: document.getElementById('hora_inicio').value,
+            temp_inicio_caminhao: parseFloat(document.getElementById('temp_inicio_caminhao').value) || (document.getElementById('temp_inicio_caminhao').value === '0' ? 0 : ''),
+            temp_inicio_produto: parseFloat(document.getElementById('temp_inicio_produto').value) || (document.getElementById('temp_inicio_produto').value === '0' ? 0 : ''),
+            hora_meio_recebimento: document.getElementById('hora_meio').value,
+            temp_meio_caminhao: parseFloat(document.getElementById('temp_meio_caminhao').value) || (document.getElementById('temp_meio_caminhao').value === '0' ? 0 : ''),
+            temp_meio_produto: parseFloat(document.getElementById('temp_meio_produto').value) || (document.getElementById('temp_meio_produto').value === '0' ? 0 : ''),
+            hora_fim_recebimento: document.getElementById('hora_fim').value, 
+            temp_fim_caminhao: parseFloat(document.getElementById('temp_fim_caminhao').value) || (document.getElementById('temp_fim_caminhao').value === '0' ? 0 : ''), 
+            temp_fim_produto: parseFloat(document.getElementById('temp_fim_produto').value) || (document.getElementById('temp_fim_produto').value === '0' ? 0 : ''), 
+            checklist,
+            mixProdutos: mixProdutos, 
+            produtos: produtosInput,
+            tipo_carga: cargaData,
+            recebimentoStatus,
+            conferente: document.getElementById('conferente_recebimento').value
+        };
+
+        dadosRecebimento.push(dadosAtuais);
+        localStorage.setItem('dadosRecebimento', JSON.stringify(dadosRecebimento));
+        
+        showAlert('Dados de recebimento salvos com sucesso no histórico local!');
+    }
+function gerarRelatorio() {
+    const dados = dadosRecebimento[dadosRecebimento.length - 1] || {};
+
+    if (Object.keys(dados).length === 0) {
+        showAlert('Não há dados de recebimento para gerar relatório. Por favor, salve um recebimento primeiro.');
+        return;
+    }
+
+    const lacreText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
+                               dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+
+    const produtosText =
+        dados.produtos?.map(p => `• Código: ${p.codigo || 'N/A'} - Qtd: ${p.quantidade_recebida !== '' ? p.quantidade_recebida : 'N/A'} - Validade: ${p.data_validade || 'N/A'} - Obs: ${p.observacao || 'N/A'}`).join('\n') || 'Nenhum produto';
+
+    const tipoCargaText = dados.tipo_carga?.tipo === 'paletizado' ? `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes)` :
+                               dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
+
+    const mixProdutosText = dados.mixProdutos?.status === 'sim' ? `Sim (${dados.mixProdutos?.qtd_paletes !== '' ? dados.mixProdutos?.qtd_paletes : 'N/A'} paletes)` : 'Não';
+
+    let relatorio = `--- Relatório de Recebimento ---\n\n`;
+    relatorio += `Data e Hora do Registro: ${dados.dataHoraRegistro || 'N/A'}\n`;
+    relatorio += `Tipo de Documento: ${dados.tipo_documento === 'recebimento' ? 'Recebimento' : 'Devolução'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `🚚 DADOS DO RECEBIMENTO\n`;
+    relatorio += `Motorista: ${dados.motorista || 'N/A'}\n`;
+    relatorio += `CPF do Motorista: ${dados.cpf_motorista || 'N/A'}\n`;
+    relatorio += `Transportadora: ${dados.transportadora || 'N/A'}\n`;
+    relatorio += `Placa do Veículo: ${dados.placa || 'N/A'}\n`;
+    relatorio += `Data do Recebimento: ${dados.data_recebimento || 'N/A'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `✅ CHECKLIST DE RECEBIMENTO\n`;
+    relatorio += `Integridade da Embalagem: ${dados.checklist?.integridade_embalagem === 'sim' ? 'Sim' : dados.checklist?.integridade_embalagem === 'nao' ? 'Não' : 'N/A'}\n`;
+    relatorio += `Mercadoria conforme Pedido/NF: ${dados.checklist?.conformidade_mercadoria === 'sim' ? 'Sim' : dados.checklist?.conformidade_mercadoria === 'nao' ? 'Não' : 'N/A'}\n`;
+    relatorio += `Veículo e Carga em boas condições de higiene: ${dados.checklist?.higiene_carga === 'sim' ? 'Sim' : dados.checklist?.higiene_carga === 'nao' ? 'Não' : 'N/A'}\n`;
+    relatorio += `Presença de Pragas/Insetos/Odores estranhos: ${dados.checklist?.pragas_odores === 'sim' ? 'Sim' : dados.checklist?.pragas_odores === 'nao' ? 'Não' : 'N/A'}\n`;
+    relatorio += `Termômetro funcionando: ${dados.checklist?.termometro_funcionando === 'sim' ? 'Sim' : dados.checklist?.termometro_funcionando === 'nao' ? 'Não' : 'N/A'}\n`;
+    relatorio += `Lacre do fornecedor intacto: ${dados.checklist?.lacre_fornecedor_intacto === 'sim' ? 'Sim' : dados.checklist?.lacre_fornecedor_intacto === 'nao' ? 'Não' : 'N/A'}\n`;
+    relatorio += `Observações do Checklist: ${dados.checklist?.observacoes || 'N/A'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `📄 DADOS DA NOTA FISCAL\n`;
+    relatorio += `Número da Nota Fiscal: ${dados.numero_nf || 'N/A'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `🏭 DADOS DO FORNECEDOR\n`;
+    relatorio += `Nome do Fornecedor: ${dados.nome_fornecedor || 'N/A'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `🔒 LACRE\n`;
+    relatorio += `Status do Lacre: ${lacreText}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `🌡️⏰ INÍCIO DO RECEBIMENTO\n`;
+    relatorio += `Hora: ${dados.hora_inicio_recebimento || 'N/A'}\n`;
+    relatorio += `Temperatura Caminhão: ${dados.temp_inicio_caminhao !== '' ? dados.temp_inicio_caminhao + '°C' : 'N/A'}\n`;
+    relatorio += `Temperatura Produto: ${dados.temp_inicio_produto !== '' ? dados.temp_inicio_produto + '°C' : 'N/A'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `🌡️⏰ MEIO DO RECEBIMENTO\n`;
+    relatorio += `Hora: ${dados.hora_meio_recebimento || 'N/A'}\n`;
+    relatorio += `Temperatura Caminhão: ${dados.temp_meio_caminhao !== '' ? dados.temp_meio_caminhao + '°C' : 'N/A'}\n`;
+    relatorio += `Temperatura Produto: ${dados.temp_meio_produto !== '' ? dados.temp_meio_produto + '°C' : 'N/A'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `🌡️⏰ FIM DO RECEBIMENTO\n`;
+    relatorio += `Hora: ${dados.hora_fim_recebimento || 'N/A'}\n`;
+    relatorio += `Temperatura Caminhão: ${dados.temp_fim_caminhao !== '' ? dados.temp_fim_caminhao + '°C' : 'N/A'}\n`;
+    relatorio += `Temperatura Produto: ${dados.temp_fim_produto !== '' ? dados.temp_fim_produto + '°C' : 'N/A'}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `📦 MIX DE PRODUTOS\n`;
+    relatorio += `Houve mix de produtos: ${mixProdutosText}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `📦 PRODUTOS RECEBIDOS\n${produtosText}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `📦 TIPO DE CARGA\n`;
+    relatorio += `Tipo: ${tipoCargaText}\n`;
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `✅ STATUS DO RECEBIMENTO\n`;
+    relatorio += `Status da Entrega: ${dados.recebimentoStatus?.status ? (dados.recebimentoStatus.status.charAt(0).toUpperCase() + dados.recebimentoStatus.status.slice(1)) : 'N/A'}\n`;
+    if (dados.recebimentoStatus?.motivo_divergencia) {
+        relatorio += `Motivo (Divergência/Recusa): ${dados.recebimentoStatus.motivo_divergencia}\n`;
+    } else {
+        relatorio += `Motivo (Divergência/Recusa): N/A\n`;
+    }
+
+    relatorio += `\n-----------------------------------\n`; // Linha tracejada
+    relatorio += `👨‍💼 CONFERENTE\n`;
+    relatorio += `Nome do Conferente: ${dados.conferente || 'N/A'}\n`;
+
+    document.getElementById('relatorioConteudo').textContent = relatorio;
+    document.getElementById('modalRelatorio').style.display = 'flex';
+}
+
+    function fecharRelatorio() {
+        document.getElementById('modalRelatorio').style.display = 'none';
+    }
+
+    function exportarParaExcel() {
+        if (dadosRecebimento.length === 0) {
+            showAlert('Não há dados salvos para exportar para Excel.');
+            return;
+        }
+
+        const dadosParaExcel = dadosRecebimento.map(item => {
+            let row = {
+                'ID Registro': item.id,
+                'Data/Hora Registro': item.dataHoraRegistro,
+                'Tipo Documento': item.tipo_documento === 'recebimento' ? 'Recebimento' : 'Devolução',
+                'Motorista': item.motorista,
+                'CPF Motorista': item.cpf_motorista,
+                'Transportadora': item.transportadora,
+                'Placa': item.placa,
+                'Data Recebimento': item.data_recebimento,
+                'Número NF': item.numero_nf,
+                'Nome Fornecedor': item.nome_fornecedor,
+                'Lacre Status': item.lacre?.status,
+                'Lacre Código': item.lacre?.codigo,
+                'Lacre Motivo Sem Lacre': item.lacre?.motivo_sem_lacre,
+                'Hora Início Recebimento': item.hora_inicio_recebimento,
+                'Temp Início Caminhão (°C)': item.temp_inicio_caminhao,
+                'Temp Início Produto (°C)': item.temp_inicio_produto,
+                'Hora Meio Recebimento': item.hora_meio_recebimento,
+                'Temp Meio Caminhão (°C)': item.temp_meio_caminhao,
+                'Temp Meio Produto (°C)': item.temp_meio_produto,
+                'Hora Fim Recebimento': item.hora_fim_recebimento,
+                'Temp Fim Caminhão (°C)': item.temp_fim_caminhao,
+                'Temp Fim Produto (°C)': item.temp_fim_produto, 
+                'Checklist Integridade Embalagem': item.checklist?.integridade_embalagem,
+                'Checklist Conformidade Mercadoria': item.checklist?.conformidade_mercadoria,
+                'Checklist Higiene Carga': item.checklist?.higiene_carga,
+                'Checklist Pragas Odores': item.checklist?.pragas_odores,
+                'Checklist Termômetro Funcionando': item.checklist?.termometro_funcionando,
+                'Checklist Lacre Fornecedor Intacto': item.checklist?.lacre_fornecedor_intacto,
+                'Checklist Observações': item.checklist?.observacoes,
+                'Mix Produtos Status': item.mixProdutos?.status,
+                'Mix Produtos Qtd Paletes': item.mixProdutos?.qtd_paletes,
+                'Tipo Carga': item.tipo_carga?.tipo,
+                'Qtd Caixas': item.tipo_carga?.caixas,
+                'Qtd Paletes': item.tipo_carga?.paletes,
+                'Status Entrega': item.recebimentoStatus?.status,
+                'Motivo Divergência/Recusa': item.recebimentoStatus?.motivo_divergencia,
+                'Conferente': item.conferente
+            };
+
+            // Adiciona produtos dinamicamente
+            if (item.produtos && item.produtos.length > 0) {
+                item.produtos.forEach((prod, idx) => {
+                    row[`Produto ${idx + 1} Código`] = prod.codigo;
+                    row[`Produto ${idx + 1} Qtd Recebida`] = prod.quantidade_recebida;
+                    row[`Produto ${idx + 1} Data Validade`] = prod.data_validade;
+                    row[`Produto ${idx + 1} Observação`] = prod.observacao;
+                });
+            }
+            return row;
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(dadosParaExcel);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Recebimentos");
+        XLSX.writeFile(workbook, "Controle_Recebimento.xlsx");
+        showAlert('Dados exportados para "Controle_Recebimento.xlsx"!');
+    }
+
+    function limparFormulario() {
+        showConfirm('Tem certeza que deseja limpar o formulário? Todos os campos serão apagados.', (result) => {
+            if (result) {
+                document.getElementById('recebimentoForm').reset(); // Limpa todos os campos do formulário
+                document.getElementById('produtos-container').innerHTML = ''; // Limpa os produtos adicionados
+                toggleLacreFields(); // Esconde campos de lacre
+                mostrarCamposDinamicos(); // Esconde campos de carga
+                toggleMotivoDivergencia(); // Esconde campos de motivo de divergência
+                toggleMixProdutos(); // Esconde campos de mix de produtos
+                showAlert('Formulário limpo com sucesso!');
+            }
+        });
+    }
+
+    function verDadosSalvos() {
+        const dadosContainer = document.getElementById('dadosSalvosConteudo');
+        dadosContainer.innerHTML = ''; // Limpa o conteúdo anterior
+
+        if (dadosRecebimento.length === 0) {
+            dadosContainer.innerHTML = '<p>Nenhum dado salvo ainda.</p>';
+            document.getElementById('modalDadosSalvos').style.display = 'flex';
+            return;
+        }
+
+        dadosRecebimento.forEach((dados, index) => {
+            const div = document.createElement('div');
+            div.style.border = '1px solid #ccc';
+            div.style.borderRadius = '8px';
+            div.style.padding = '10px';
+            div.style.marginBottom = '10px';
+            div.style.backgroundColor = '#f9f9f9';
+
+            const lacreText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
+                                         dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+
+            const produtosText =
+                dados.produtos?.map(p => `<li>Código: ${p.codigo || 'N/A'} | Qtd: ${p.quantidade_recebida !== '' ? p.quantidade_recebida : 'N/A'} | Validade: ${p.data_validade || 'N/A'} | Obs: ${p.observacao || 'N/A'}</li>`).join('') || '<li>Nenhum produto</li>';
+
+            const tipoCargaText = dados.tipo_carga?.tipo === 'paletizado' ? `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes)` :
+                                         dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
+
+            const mixProdutosText = dados.mixProdutos?.status === 'sim' ? `Sim (${dados.mixProdutos?.qtd_paletes !== '' ? dados.mixProdutos?.qtd_paletes : 'N/A'} paletes)` : 'Não';
+
+            div.innerHTML = `
+                <h3>Registro #${index + 1} (ID: ${dados.id})</h3>
+                <p><strong>Data/Hora Registro:</strong> ${dados.dataHoraRegistro}</p>
+                <p><strong>Motorista:</strong> ${dados.motorista || 'N/A'}</p>
+                <p><strong>Placa:</strong> ${dados.placa || 'N/A'}</p>
+                <p><strong>Data Recebimento:</strong> ${dados.data_recebimento || 'N/A'}</p>
+                <p><strong>Tipo Documento:</strong> ${dados.tipo_documento === 'recebimento' ? 'Recebimento' : 'Devolução'}</p>
+                <p><strong>Número NF:</strong> ${dados.numero_nf || 'N/A'}</p>
+                <p><strong>Fornecedor:</strong> ${dados.nome_fornecedor || 'N/A'}</p>
+                <p><strong>Lacre:</strong> ${lacreText}</p>
+                <p><strong>Início Recebimento:</strong> ${dados.hora_inicio_recebimento || 'N/A'} (Temp Cam: ${dados.temp_inicio_caminhao !== '' ? dados.temp_inicio_caminhao + '°C' : 'N/A'}, Temp Prod: ${dados.temp_inicio_produto !== '' ? dados.temp_inicio_produto + '°C' : 'N/A'})</p>
+                <p><strong>Meio Recebimento:</strong> ${dados.hora_meio_recebimento || 'N/A'} (Temp Cam: ${dados.temp_meio_caminhao !== '' ? dados.temp_meio_caminhao + '°C' : 'N/A'}, Temp Prod: ${dados.temp_meio_produto !== '' ? dados.temp_meio_produto + '°C' : 'N/A'})</p>
+                <p><strong>Fim Recebimento:</strong> ${dados.hora_fim_recebimento || 'N/A'} (Temp Cam: ${dados.temp_fim_caminhao !== '' ? dados.temp_fim_caminhao + '°C' : 'N/A'}, Temp Prod: ${dados.temp_fim_produto !== '' ? dados.temp_fim_produto + '°C' : 'N/A'})</p>
+                <p><strong>Mix de Produtos:</strong> ${mixProdutosText}</p>
+                <p><strong>Tipo de Carga:</strong> ${tipoCargaText}</p>
+                <p><strong>Status da Entrega:</strong> ${dados.recebimentoStatus?.status ? (dados.recebimentoStatus.status.charAt(0).toUpperCase() + dados.recebimentoStatus.status.slice(1)) : 'N/A'}</p>
+                ${dados.recebimentoStatus?.motivo_divergencia ? `<p><strong>Motivo Divergência/Recusa:</strong> ${dados.recebimentoStatus.motivo_divergencia}</p>` : ''}
+                <p><strong>Conferente:</strong> ${dados.conferente || 'N/A'}</p>
+                <p><strong>Produtos:</strong></p>
+                <ul>${produtosText}</ul>
+                <button type="button" onclick="confirmarExclusao(${dados.id})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-top: 10px;">Excluir</button>
+            `;
+            dadosContainer.appendChild(div);
+        });
+
+        document.getElementById('modalDadosSalvos').style.display = 'flex';
+    }
+
+    function fecharDadosSalvos() {
+        document.getElementById('modalDadosSalvos').style.display = 'none';
+    }
+
+    function confirmarExclusao(id) {
+        showConfirm('Tem certeza que deseja excluir este registro?', (result) => {
+            if (result) {
+                excluirDados(id);
+            }
+        });
+    }
+
+    function excluirDados(id) {
+        dadosRecebimento = dadosRecebimento.filter(item => item.id !== id);
+        localStorage.setItem('dadosRecebimento', JSON.stringify(dadosRecebimento));
+        showAlert('Registro excluído com sucesso!');
+        verDadosSalvos(); // Atualiza a lista de dados salvos
+    }
+
+    // Inicializa a exibição dos campos dinâmicos ao carregar a página
+    document.addEventListener('DOMContentLoaded', () => {
+        toggleLacreFields();
+        mostrarCamposDinamicos();
+        toggleMotivoDivergencia();
+        toggleMixProdutos(); // Inicializa o estado do mix de produtos
+        
+        // Define a data atual como padrão para o campo de data_recebimento
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+        const dd = String(today.getDate()).padStart(2, '0');
+        document.getElementById('data_recebimento').value = `${yyyy}-${mm}-${dd}`;
+    });
+</script>
+
+</body>
+</html>
