@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>App Controle de Recebimento</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         /* Mantendo exatamente o mesmo CSS original */
         :root {
@@ -255,6 +256,15 @@
         .custom-modal-buttons .btn-cancel:hover {
             background-color: #bbb;
         }
+
+        /* Estilos adicionais para o botão de download de PDF */
+        #modalRelatorio .conteudo-modal .modal-actions {
+            display: flex;
+            justify-content: flex-end; /* Alinha o botão à direita */
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -265,6 +275,9 @@
     <div class="conteudo-modal">
         <span class="fechar-modal" onclick="fecharRelatorio()">&times;</span>
         <pre id="relatorioConteudo"></pre>
+        <div class="modal-actions">
+            <button type="button" onclick="salvarRelatorioPDF()">Salvar em PDF</button>
+        </div>
     </div>
 </div>
 
@@ -464,8 +477,7 @@
     </div>
 
     <div class="grupo-botoes">
-        <button type="button" onclick="salvarDados()">💾 Salvar</button>
-        <button type="button" onclick="gerarRelatorio()">📊 Relatório</button>
+        <button type="button" onclick="salvarDadosERelatorio()">💾 Salvar e Ver Relatório</button>
         <button type="button" onclick="exportarParaExcel()">📤 Ver Excel</button>
         <button type="button" onclick="limparFormulario()">🧹 Limpar Formulário</button>
         <button type="button" onclick="verDadosSalvos()">📂 Ver Histórico</button>
@@ -620,7 +632,7 @@
         const cpfMotoristaValue = document.getElementById('cpf_motorista').value;
         if (cpfMotoristaValue && !validarCPF(cpfMotoristaValue)) {
             showAlert('CPF do motorista inválido! Por favor, corrija o CPF ou deixe o campo vazio.');
-            return;
+            return false; // Retorna false para indicar que não salvou
         }
 
         // Captura o tipo de documento
@@ -665,8 +677,8 @@
         const mixProdutos = {
             status: document.querySelector('input[name="mix_produtos"]:checked')?.value || '',
             qtd_paletes: document.querySelector('input[name="mix_produtos"]:checked')?.value === 'sim' 
-                                     ? (parseFloat(document.getElementById('qtd_paletes_mix').value) || (document.getElementById('qtd_paletes_mix').value === '0' ? 0 : ''))
-                                     : ''
+                                 ? (parseFloat(document.getElementById('qtd_paletes_mix').value) || (document.getElementById('qtd_paletes_mix').value === '0' ? 0 : ''))
+                                 : ''
         };
 
         const dadosAtuais = {
@@ -700,107 +712,128 @@
 
         dadosRecebimento.push(dadosAtuais);
         localStorage.setItem('dadosRecebimento', JSON.stringify(dadosRecebimento));
-        
         showAlert('Dados de recebimento salvos com sucesso no histórico local!');
-    }
-function gerarRelatorio() {
-    const dados = dadosRecebimento[dadosRecebimento.length - 1] || {};
-
-    if (Object.keys(dados).length === 0) {
-        showAlert('Não há dados de recebimento para gerar relatório. Por favor, salve um recebimento primeiro.');
-        return;
+        return true; // Retorna true para indicar que salvou com sucesso
     }
 
-    const lacreText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
-                               dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
-
-    const produtosText =
-        dados.produtos?.map(p => `• Código: ${p.codigo || 'N/A'} - Qtd: ${p.quantidade_recebida !== '' ? p.quantidade_recebida : 'N/A'} - Validade: ${p.data_validade || 'N/A'} - Obs: ${p.observacao || 'N/A'}`).join('\n') || 'Nenhum produto';
-
-    const tipoCargaText = dados.tipo_carga?.tipo === 'paletizado' ? `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes)` :
-                               dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
-
-    const mixProdutosText = dados.mixProdutos?.status === 'sim' ? `Sim (${dados.mixProdutos?.qtd_paletes !== '' ? dados.mixProdutos?.qtd_paletes : 'N/A'} paletes)` : 'Não';
-
-    let relatorio = `--- Relatório de Recebimento ---\n\n`;
-    relatorio += `Data e Hora do Registro: ${dados.dataHoraRegistro || 'N/A'}\n`;
-    relatorio += `Tipo de Documento: ${dados.tipo_documento === 'recebimento' ? 'Recebimento' : 'Devolução'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `🚚 DADOS DO RECEBIMENTO\n`;
-    relatorio += `Motorista: ${dados.motorista || 'N/A'}\n`;
-    relatorio += `CPF do Motorista: ${dados.cpf_motorista || 'N/A'}\n`;
-    relatorio += `Transportadora: ${dados.transportadora || 'N/A'}\n`;
-    relatorio += `Placa do Veículo: ${dados.placa || 'N/A'}\n`;
-    relatorio += `Data do Recebimento: ${dados.data_recebimento || 'N/A'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `✅ CHECKLIST DE RECEBIMENTO\n`;
-    relatorio += `Integridade da Embalagem: ${dados.checklist?.integridade_embalagem === 'sim' ? 'Sim' : dados.checklist?.integridade_embalagem === 'nao' ? 'Não' : 'N/A'}\n`;
-    relatorio += `Mercadoria conforme Pedido/NF: ${dados.checklist?.conformidade_mercadoria === 'sim' ? 'Sim' : dados.checklist?.conformidade_mercadoria === 'nao' ? 'Não' : 'N/A'}\n`;
-    relatorio += `Veículo e Carga em boas condições de higiene: ${dados.checklist?.higiene_carga === 'sim' ? 'Sim' : dados.checklist?.higiene_carga === 'nao' ? 'Não' : 'N/A'}\n`;
-    relatorio += `Presença de Pragas/Insetos/Odores estranhos: ${dados.checklist?.pragas_odores === 'sim' ? 'Sim' : dados.checklist?.pragas_odores === 'nao' ? 'Não' : 'N/A'}\n`;
-    relatorio += `Termômetro funcionando: ${dados.checklist?.termometro_funcionando === 'sim' ? 'Sim' : dados.checklist?.termometro_funcionando === 'nao' ? 'Não' : 'N/A'}\n`;
-    relatorio += `Lacre do fornecedor intacto: ${dados.checklist?.lacre_fornecedor_intacto === 'sim' ? 'Sim' : dados.checklist?.lacre_fornecedor_intacto === 'nao' ? 'Não' : 'N/A'}\n`;
-    relatorio += `Observações do Checklist: ${dados.checklist?.observacoes || 'N/A'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `📄 DADOS DA NOTA FISCAL\n`;
-    relatorio += `Número da Nota Fiscal: ${dados.numero_nf || 'N/A'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `🏭 DADOS DO FORNECEDOR\n`;
-    relatorio += `Nome do Fornecedor: ${dados.nome_fornecedor || 'N/A'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `🔒 LACRE\n`;
-    relatorio += `Status do Lacre: ${lacreText}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `🌡️⏰ INÍCIO DO RECEBIMENTO\n`;
-    relatorio += `Hora: ${dados.hora_inicio_recebimento || 'N/A'}\n`;
-    relatorio += `Temperatura Caminhão: ${dados.temp_inicio_caminhao !== '' ? dados.temp_inicio_caminhao + '°C' : 'N/A'}\n`;
-    relatorio += `Temperatura Produto: ${dados.temp_inicio_produto !== '' ? dados.temp_inicio_produto + '°C' : 'N/A'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `🌡️⏰ MEIO DO RECEBIMENTO\n`;
-    relatorio += `Hora: ${dados.hora_meio_recebimento || 'N/A'}\n`;
-    relatorio += `Temperatura Caminhão: ${dados.temp_meio_caminhao !== '' ? dados.temp_meio_caminhao + '°C' : 'N/A'}\n`;
-    relatorio += `Temperatura Produto: ${dados.temp_meio_produto !== '' ? dados.temp_meio_produto + '°C' : 'N/A'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `🌡️⏰ FIM DO RECEBIMENTO\n`;
-    relatorio += `Hora: ${dados.hora_fim_recebimento || 'N/A'}\n`;
-    relatorio += `Temperatura Caminhão: ${dados.temp_fim_caminhao !== '' ? dados.temp_fim_caminhao + '°C' : 'N/A'}\n`;
-    relatorio += `Temperatura Produto: ${dados.temp_fim_produto !== '' ? dados.temp_fim_produto + '°C' : 'N/A'}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `📦 MIX DE PRODUTOS\n`;
-    relatorio += `Houve mix de produtos: ${mixProdutosText}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `📦 PRODUTOS RECEBIDOS\n${produtosText}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `📦 TIPO DE CARGA\n`;
-    relatorio += `Tipo: ${tipoCargaText}\n`;
-
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `✅ STATUS DO RECEBIMENTO\n`;
-    relatorio += `Status da Entrega: ${dados.recebimentoStatus?.status ? (dados.recebimentoStatus.status.charAt(0).toUpperCase() + dados.recebimentoStatus.status.slice(1)) : 'N/A'}\n`;
-    if (dados.recebimentoStatus?.motivo_divergencia) {
-        relatorio += `Motivo (Divergência/Recusa): ${dados.recebimentoStatus.motivo_divergencia}\n`;
-    } else {
-        relatorio += `Motivo (Divergência/Recusa): N/A\n`;
+    // Função para salvar dados e então mostrar o relatório
+    function salvarDadosERelatorio() {
+        if (salvarDados()) { // Chama a função salvarDados e verifica se foi bem-sucedido
+            gerarRelatorio(); // Se salvou, gera e exibe o relatório
+        }
     }
 
-    relatorio += `\n-----------------------------------\n`; // Linha tracejada
-    relatorio += `👨‍💼 CONFERENTE\n`;
-    relatorio += `Nome do Conferente: ${dados.conferente || 'N/A'}\n`;
+    // Adiciona a função para salvar o relatório como PDF
+    function salvarRelatorioPDF() {
+        const element = document.getElementById('relatorioConteudo');
+        const opt = {
+            margin: 10,
+            filename: 'relatorio_recebimento.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
 
-    document.getElementById('relatorioConteudo').textContent = relatorio;
-    document.getElementById('modalRelatorio').style.display = 'flex';
-}
+    function gerarRelatorio() {
+        const dados = dadosRecebimento[dadosRecebimento.length - 1] || {};
+
+        if (Object.keys(dados).length === 0) {
+            showAlert('Não há dados de recebimento para gerar relatório. Por favor, salve um recebimento primeiro.');
+            return;
+        }
+
+        const lacreText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
+                                       dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+
+        const produtosText =
+            dados.produtos?.map(p => `• Código: ${p.codigo || 'N/A'} - Qtd: ${p.quantidade_recebida !== '' ? p.quantidade_recebida : 'N/A'} - Validade: ${p.data_validade || 'N/A'} - Obs: ${p.observacao || 'N/A'}`).join('\n') || 'Nenhum produto';
+
+        const tipoCargaText = dados.tipo_carga?.tipo === 'paletizado' ? `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes)` :
+                                       dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
+
+        const mixProdutosText = dados.mixProdutos?.status === 'sim' ? `Sim (${dados.mixProdutos?.qtd_paletes !== '' ? dados.mixProdutos?.qtd_paletes : 'N/A'} paletes)` : 'Não';
+
+        let relatorio = `--- Relatório de Recebimento ---\n\n`;
+        relatorio += `Data e Hora do Registro: ${dados.dataHoraRegistro || 'N/A'}\n`;
+        relatorio += `Tipo de Documento: ${dados.tipo_documento === 'recebimento' ? 'Recebimento' : 'Devolução'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `🚚 DADOS DO RECEBIMENTO\n`;
+        relatorio += `Motorista: ${dados.motorista || 'N/A'}\n`;
+        relatorio += `CPF do Motorista: ${dados.cpf_motorista || 'N/A'}\n`;
+        relatorio += `Transportadora: ${dados.transportadora || 'N/A'}\n`;
+        relatorio += `Placa do Veículo: ${dados.placa || 'N/A'}\n`;
+        relatorio += `Data do Recebimento: ${dados.data_recebimento || 'N/A'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `✅ CHECKLIST DE RECEBIMENTO\n`;
+        relatorio += `Integridade da Embalagem: ${dados.checklist?.integridade_embalagem === 'sim' ? 'Sim' : dados.checklist?.integridade_embalagem === 'nao' ? 'Não' : 'N/A'}\n`;
+        relatorio += `Mercadoria conforme Pedido/NF: ${dados.checklist?.conformidade_mercadoria === 'sim' ? 'Sim' : dados.checklist?.conformidade_mercadoria === 'nao' ? 'Não' : 'N/A'}\n`;
+        relatorio += `Veículo e Carga em boas condições de higiene: ${dados.checklist?.higiene_carga === 'sim' ? 'Sim' : dados.checklist?.higiene_carga === 'nao' ? 'Não' : 'N/A'}\n`;
+        relatorio += `Presença de Pragas/Insetos/Odores estranhos: ${dados.checklist?.pragas_odores === 'sim' ? 'Sim' : dados.checklist?.pragas_odores === 'nao' ? 'Não' : 'N/A'}\n`;
+        relatorio += `Termômetro funcionando: ${dados.checklist?.termometro_funcionando === 'sim' ? 'Sim' : dados.checklist?.termometro_funcionando === 'nao' ? 'Não' : 'N/A'}\n`;
+        relatorio += `Lacre do fornecedor intacto: ${dados.checklist?.lacre_fornecedor_intacto === 'sim' ? 'Sim' : dados.checklist?.lacre_fornecedor_intacto === 'nao' ? 'Não' : 'N/A'}\n`;
+        relatorio += `Observações do Checklist: ${dados.checklist?.observacoes || 'N/A'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `📄 DADOS DA NOTA FISCAL\n`;
+        relatorio += `Número da Nota Fiscal: ${dados.numero_nf || 'N/A'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `🏭 DADOS DO FORNECEDOR\n`;
+        relatorio += `Nome do Fornecedor: ${dados.nome_fornecedor || 'N/A'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `🔒 LACRE\n`;
+        relatorio += `Status do Lacre: ${lacreText}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `🌡️⏰ INÍCIO DO RECEBIMENTO\n`;
+        relatorio += `Hora: ${dados.hora_inicio_recebimento || 'N/A'}\n`;
+        relatorio += `Temperatura Caminhão: ${dados.temp_inicio_caminhao !== '' ? dados.temp_inicio_caminhao + '°C' : 'N/A'}\n`;
+        relatorio += `Temperatura Produto: ${dados.temp_inicio_produto !== '' ? dados.temp_inicio_produto + '°C' : 'N/A'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `🌡️⏰ MEIO DO RECEBIMENTO\n`;
+        relatorio += `Hora: ${dados.hora_meio_recebimento || 'N/A'}\n`;
+        relatorio += `Temperatura Caminhão: ${dados.temp_meio_caminhao !== '' ? dados.temp_meio_caminhao + '°C' : 'N/A'}\n`;
+        relatorio += `Temperatura Produto: ${dados.temp_meio_produto !== '' ? dados.temp_meio_produto + '°C' : 'N/A'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `🌡️⏰ FIM DO RECEBIMENTO\n`;
+        relatorio += `Hora: ${dados.hora_fim_recebimento || 'N/A'}\n`;
+        relatorio += `Temperatura Caminhão: ${dados.temp_fim_caminhao !== '' ? dados.temp_fim_caminhao + '°C' : 'N/A'}\n`;
+        relatorio += `Temperatura Produto: ${dados.temp_fim_produto !== '' ? dados.temp_fim_produto + '°C' : 'N/A'}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `📦 MIX DE PRODUTOS\n`;
+        relatorio += `Houve mix de produtos: ${mixProdutosText}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `📦 PRODUTOS RECEBIDOS\n${produtosText}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `📦 TIPO DE CARGA\n`;
+        relatorio += `Tipo: ${tipoCargaText}\n`;
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `✅ STATUS DO RECEBIMENTO\n`;
+        relatorio += `Status da Entrega: ${dados.recebimentoStatus?.status ? (dados.recebimentoStatus.status.charAt(0).toUpperCase() + dados.recebimentoStatus.status.slice(1)) : 'N/A'}\n`;
+        if (dados.recebimentoStatus?.motivo_divergencia) {
+            relatorio += `Motivo (Divergência/Recusa): ${dados.recebimentoStatus.motivo_divergencia}\n`;
+        } else {
+            relatorio += `Motivo (Divergência/Recusa): N/A\n`;
+        }
+
+        relatorio += `\n-----------------------------------\n`; // Linha tracejada
+        relatorio += `👨‍💼 CONFERENTE\n`;
+        relatorio += `Nome do Conferente: ${dados.conferente || 'N/A'}\n`;
+
+        document.getElementById('relatorioConteudo').textContent = relatorio;
+        document.getElementById('modalRelatorio').style.display = 'flex';
+    }
 
     function fecharRelatorio() {
         document.getElementById('modalRelatorio').style.display = 'none';
@@ -905,13 +938,13 @@ function gerarRelatorio() {
             div.style.backgroundColor = '#f9f9f9';
 
             const lacreText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
-                                         dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+                                           dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
 
             const produtosText =
                 dados.produtos?.map(p => `<li>Código: ${p.codigo || 'N/A'} | Qtd: ${p.quantidade_recebida !== '' ? p.quantidade_recebida : 'N/A'} | Validade: ${p.data_validade || 'N/A'} | Obs: ${p.observacao || 'N/A'}</li>`).join('') || '<li>Nenhum produto</li>';
 
             const tipoCargaText = dados.tipo_carga?.tipo === 'paletizado' ? `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes)` :
-                                         dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
+                                           dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
 
             const mixProdutosText = dados.mixProdutos?.status === 'sim' ? `Sim (${dados.mixProdutos?.qtd_paletes !== '' ? dados.mixProdutos?.qtd_paletes : 'N/A'} paletes)` : 'Não';
 
