@@ -453,6 +453,9 @@
         <div id="paletes_field_container" style="display:none">
             <input type="number" id="paletes" placeholder="Quantidade de paletes" min="0">
         </div>
+        <div id="caixas_paletes_field_container" style="display:none">
+            <input type="number" id="caixas_paletizado" placeholder="Quantidade de caixas (paletizado)" min="0">
+        </div>
     </div>
 
     <div class="secao">
@@ -543,13 +546,17 @@
         const tipoCarga = document.getElementById('tipo_carga').value;
         document.getElementById('caixas_field_container').style.display = 'none';
         document.getElementById('paletes_field_container').style.display = 'none';
+        document.getElementById('caixas_paletes_field_container').style.display = 'none'; // Added for paletizado + caixas
+
         document.getElementById('caixas').value = '';
         document.getElementById('paletes').value = '';
+        document.getElementById('caixas_paletizado').value = ''; // Clear for paletizado + caixas
 
         if (tipoCarga === 'batido') {
             document.getElementById('caixas_field_container').style.display = 'block';
         } else if (tipoCarga === 'paletizado') {
             document.getElementById('paletes_field_container').style.display = 'block';
+            document.getElementById('caixas_paletes_field_container').style.display = 'block'; // Show for paletizado + caixas
         }
     }
 
@@ -665,7 +672,8 @@
         const cargaData = {
             tipo: tipoCarga,
             caixas: tipoCarga === 'batido' ? (parseFloat(document.getElementById('caixas').value) || (document.getElementById('caixas').value === '0' ? 0 : '')) : '',
-            paletes: tipoCarga === 'paletizado' ? (parseFloat(document.getElementById('paletes').value) || (document.getElementById('paletes').value === '0' ? 0 : '')) : ''
+            paletes: tipoCarga === 'paletizado' ? (parseFloat(document.getElementById('paletes').value) || (document.getElementById('paletes').value === '0' ? 0 : '')) : '',
+            caixas_paletizado: tipoCarga === 'paletizado' ? (parseFloat(document.getElementById('caixas_paletizado').value) || (document.getElementById('caixas_paletizado').value === '0' ? 0 : '')) : '' // Added for paletizado + caixas
         };
 
         const statusEntrega = document.querySelector('input[name="status_entrega"]:checked')?.value;
@@ -677,8 +685,8 @@
         const mixProdutos = {
             status: document.querySelector('input[name="mix_produtos"]:checked')?.value || '',
             qtd_paletes: document.querySelector('input[name="mix_produtos"]:checked')?.value === 'sim' 
-                                 ? (parseFloat(document.getElementById('qtd_paletes_mix').value) || (document.getElementById('qtd_paletes_mix').value === '0' ? 0 : ''))
-                                 : ''
+                                     ? (parseFloat(document.getElementById('qtd_paletes_mix').value) || (document.getElementById('qtd_paletes_mix').value === '0' ? 0 : ''))
+                                     : ''
         };
 
         const dadosAtuais = {
@@ -719,7 +727,7 @@
     // Função para salvar dados e então mostrar o relatório
     function salvarDadosERelatorio() {
         if (salvarDados()) { // Chama a função salvarDados e verifica se foi bem-sucedido
-            gerarRelatorio(); // Se salvou, gera e exibe o relatório
+            generarRelatorio(); // Se salvou, gera e exibe o relatório
         }
     }
 
@@ -733,10 +741,14 @@
             html2canvas: { scale: 2 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
-        html2pdf().set(opt).from(element).save();
+        // Use a new div to render the content for PDF to avoid issues with display: none and pre-wrap
+        const printElement = document.createElement('div');
+        printElement.innerHTML = `<pre>${element.textContent}</pre>`; // Keep pre-wrap styling
+        
+        html2pdf().set(opt).from(printElement).save();
     }
 
-    function gerarRelatorio() {
+    function generarRelatorio() {
         const dados = dadosRecebimento[dadosRecebimento.length - 1] || {};
 
         if (Object.keys(dados).length === 0) {
@@ -745,13 +757,22 @@
         }
 
         const lacreText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
-                                       dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+                                     dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
 
         const produtosText =
             dados.produtos?.map(p => `• Código: ${p.codigo || 'N/A'} - Qtd: ${p.quantidade_recebida !== '' ? p.quantidade_recebida : 'N/A'} - Validade: ${p.data_validade || 'N/A'} - Obs: ${p.observacao || 'N/A'}`).join('\n') || 'Nenhum produto';
 
-        const tipoCargaText = dados.tipo_carga?.tipo === 'paletizado' ? `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes)` :
-                                       dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
+        let tipoCargaText = 'N/A';
+        if (dados.tipo_carga?.tipo === 'paletizado') {
+            tipoCargaText = `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes`;
+            if (dados.tipo_carga?.caixas_paletizado !== '') {
+                tipoCargaText += `, ${dados.tipo_carga?.caixas_paletizado} caixas)`;
+            } else {
+                tipoCargaText += ')';
+            }
+        } else if (dados.tipo_carga?.tipo === 'batido') {
+            tipoCargaText = `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)`;
+        }
 
         const mixProdutosText = dados.mixProdutos?.status === 'sim' ? `Sim (${dados.mixProdutos?.qtd_paletes !== '' ? dados.mixProdutos?.qtd_paletes : 'N/A'} paletes)` : 'Não';
 
@@ -879,8 +900,9 @@
                 'Mix Produtos Status': item.mixProdutos?.status,
                 'Mix Produtos Qtd Paletes': item.mixProdutos?.qtd_paletes,
                 'Tipo Carga': item.tipo_carga?.tipo,
-                'Qtd Caixas': item.tipo_carga?.caixas,
-                'Qtd Paletes': item.tipo_carga?.paletes,
+                'Qtd Caixas (Batido)': item.tipo_carga?.caixas,
+                'Qtd Paletes (Paletizado)': item.tipo_carga?.paletes,
+                'Qtd Caixas (Paletizado)': item.tipo_carga?.caixas_paletizado, // Added for Excel export
                 'Status Entrega': item.recebimentoStatus?.status,
                 'Motivo Divergência/Recusa': item.recebimentoStatus?.motivo_divergencia,
                 'Conferente': item.conferente
@@ -938,13 +960,22 @@
             div.style.backgroundColor = '#f9f9f9';
 
             const lacreText = dados.lacre?.status === 'sim' ? `Sim (Código: ${dados.lacre?.codigo || 'N/A'})` :
-                                           dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
+                                                         dados.lacre?.status === 'nao' ? `Não (Motivo: ${dados.lacre?.motivo_sem_lacre || 'N/A'})` : 'N/A';
 
             const produtosText =
                 dados.produtos?.map(p => `<li>Código: ${p.codigo || 'N/A'} | Qtd: ${p.quantidade_recebida !== '' ? p.quantidade_recebida : 'N/A'} | Validade: ${p.data_validade || 'N/A'} | Obs: ${p.observacao || 'N/A'}</li>`).join('') || '<li>Nenhum produto</li>';
 
-            const tipoCargaText = dados.tipo_carga?.tipo === 'paletizado' ? `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes)` :
-                                           dados.tipo_carga?.tipo === 'batido' ? `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)` : 'N/A';
+            let tipoCargaText = 'N/A';
+            if (dados.tipo_carga?.tipo === 'paletizado') {
+                tipoCargaText = `Paletizado (${dados.tipo_carga?.paletes !== '' ? dados.tipo_carga?.paletes : 'N/A'} paletes`;
+                if (dados.tipo_carga?.caixas_paletizado !== '') {
+                    tipoCargaText += `, ${dados.tipo_carga?.caixas_paletizado} caixas)`;
+                } else {
+                    tipoCargaText += ')';
+                }
+            } else if (dados.tipo_carga?.tipo === 'batido') {
+                tipoCargaText = `Batido (${dados.tipo_carga?.caixas !== '' ? dados.tipo_carga?.caixas : 'N/A'} caixas)`;
+            }
 
             const mixProdutosText = dados.mixProdutos?.status === 'sim' ? `Sim (${dados.mixProdutos?.qtd_paletes !== '' ? dados.mixProdutos?.qtd_paletes : 'N/A'} paletes)` : 'Não';
 
